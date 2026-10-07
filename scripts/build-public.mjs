@@ -12,8 +12,9 @@ if (fs.existsSync(srcDir)) {
   fs.cpSync(srcDir, distDir, { recursive: true });
 }
 
-// root aleph.config.json -> dist/aleph.json 백업 복사
+// root aleph.config.json -> public 및 dist 로 복사 보장
 const rootConfig = path.resolve('aleph.config.json');
 if (fs.existsSync(rootConfig)) {
-  fs.copyFileSync(rootConfig, path.join(distDir, 'aleph.json'));
+  fs.copyFileSync(rootConfig, path.join(distDir, 'aleph.config.json'));
+  fs.copyFileSync(rootConfig, path.join(srcDir, 'aleph.config.json'));
 }

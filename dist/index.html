@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>자료실 (5단계)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    .card {
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .hidden { display: none; }
+    input, textarea, button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0070f3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #0051a2; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>🔒 자료실 (5단계)</h1>
+
+  <!-- 로그인 / 회원가입 섹션 -->
+  <div id="auth-section" class="card">
+    <h2>로그인 / 회원가입</h2>
+    <div id="auth-error" class="error"></div>
+    <label>이메일</label>
+    <input type="email" id="email" placeholder="user@example.com">
+    <label>비밀번호</label>
+    <input type="password" id="password" placeholder="비밀번호 입력">
+    <button id="login-btn">로그인</button>
+    <button id="signup-btn" style="background-color: #4CAF50;">회원가입</button>
+  </div>
+
+  <!-- 메모 목록 및 작성 섹션 (로그인 후 표시) -->
+  <div id="memo-section" class="card hidden">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>내 메모 목록</h2>
+      <button id="logout-btn" style="width: auto; padding: 6px 12px; background-color: #888;">로그아웃</button>
+    </div>
+    <div id="memo-error" class="error"></div>
+    <ul id="memo-list"></ul>
+
+    <h3>새 메모 작성</h3>
+    <label>제목</label>
+    <input type="text" id="memo-title" placeholder="제목">
+    <label>내용</label>
+    <textarea id="memo-body" placeholder="내용"></textarea>
+    <button id="save-memo-btn">저장하기</button>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const supabaseUrl = 'https://igumgbitelfytidliydi.supabase.co';
+    const supabaseAnonKey = 'sb_publishable_8J_Z3OYMltWvyo5GbHOr_w_7SKxVPTE';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const authSection = document.getElementById('auth-section');
+    const memoSection = document.getElementById('memo-section');
+    const authError = document.getElementById('auth-error');
+    const memoError = document.getElementById('memo-error');
+    const memoList = document.getElementById('memo-list');
+
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        showMemoSection(session);
+      } else {
+        showAuthSection();
+      }
+    }
+
+    function showAuthSection() {
+      authSection.classList.remove('hidden');
+      memoSection.classList.add('hidden');
+    }
+
+    function showMemoSection(session) {
+      authSection.classList.add('hidden');
+      memoSection.classList.remove('hidden');
+      loadMemos(session.access_token);
+    }
+
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      authError.textContent = '';
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        authError.textContent = '로그인 실패: ' + error.message;
+      } else {
+        showMemoSection(data.session);
+      }
+    });
+
+    document.getElementById('signup-btn').addEventListener('click', async () => {
+      authError.textContent = '';
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        authError.textContent = '회원가입 실패: ' + error.message;
+      } else {
+        alert('회원가입 성공! 로그인해 주세요.');
+      }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      showAuthSection();
+    });
+
+    async function loadMemos(token) {
+      memoError.textContent = '';
+      try {
+        const res = await fetch('/api/memos', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          memoError.textContent = '오류: ' + (errData.message || '자료를 불러오지 못했습니다.');
+          return;
+        }
+        const data = await res.json();
+        memoList.innerHTML = '';
+        data.forEach(memo => {
+          const li = document.createElement('li');
+          li.textContent = `${memo.title}: ${memo.body}`;
+          memoList.appendChild(li);
+        });
+      } catch (err) {
+        memoError.textContent = '통신 오류가 발생했습니다.';
+      }
+    }
+
+    document.getElementById('save-memo-btn').addEventListener('click', async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const title = document.getElementById('memo-title').value;
+      const body = document.getElementById('memo-body').value;
+
+      const res = await fetch('/api/memos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ title, body })
+      });
+
+      if (res.ok) {
+        document.getElementById('memo-title').value = '';
+        document.getElementById('memo-body').value = '';
+        loadMemos(session.access_token);
+      } else {
+        alert('저장 실패');
+      }
+    });
+
+    checkSession();
+  </script>
+</body>
+</html>
