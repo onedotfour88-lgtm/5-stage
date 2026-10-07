@@ -3,262 +3,183 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>자료실 (4단계)</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>자료실 (5단계)</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
-    .card { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-    .input-group { margin-bottom: 12px; }
-    .input-group label { display: block; margin-bottom: 4px; font-weight: bold; }
-    .input-group input, .input-group textarea { width: 100%; padding: 8px; box-sizing: border-box; }
-    button { padding: 8px 16px; cursor: pointer; margin-right: 8px; }
-    .memo-item { border-bottom: 1px solid #eee; padding: 12px 0; }
-    .memo-item:last-child { border-bottom: none; }
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    .card {
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
     .hidden { display: none; }
-    #auth-status { margin-top: 10px; font-weight: bold; color: #d32f2f; }
+    input, textarea, button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0070f3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #0051a2; }
+    .error { color: red; }
   </style>
 </head>
 <body>
-
-  <h1>🔒 자료실 (4단계)</h1>
+  <h1>🔒 자료실 (5단계)</h1>
 
   <!-- 로그인 / 회원가입 섹션 -->
   <div id="auth-section" class="card">
     <h2>로그인 / 회원가입</h2>
-    <div class="input-group">
-      <label for="email-input">이메일</label>
-      <input type="email" id="email-input" placeholder="user@example.com">
-    </div>
-    <div class="input-group">
-      <label for="password-input">비밀번호</label>
-      <input type="password" id="password-input" placeholder="비밀번호 입력">
-    </div>
-    <div>
-      <button id="login-btn" type="button">로그인</button>
-      <button id="signup-btn" type="button">회원가입</button>
-    </div>
-    <div id="auth-status"></div>
+    <div id="auth-error" class="error"></div>
+    <label>이메일</label>
+    <input type="email" id="email" placeholder="user@example.com">
+    <label>비밀번호</label>
+    <input type="password" id="password" placeholder="비밀번호 입력">
+    <button id="login-btn">로그인</button>
+    <button id="signup-btn" style="background-color: #4CAF50;">회원가입</button>
   </div>
 
   <!-- 메모 목록 및 작성 섹션 (로그인 후 표시) -->
   <div id="memo-section" class="card hidden">
-    <h2>내 메모 목록</h2>
-    <button id="logout-btn" type="button" style="float: right;">로그아웃</button>
-    <div id="memo-list">불러오는 중...</div>
-
-    <hr style="margin: 20px 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>내 메모 목록</h2>
+      <button id="logout-btn" style="width: auto; padding: 6px 12px; background-color: #888;">로그아웃</button>
+    </div>
+    <div id="memo-error" class="error"></div>
+    <ul id="memo-list"></ul>
 
     <h3>새 메모 작성</h3>
-    <div class="input-group">
-      <label for="memo-title">제목</label>
-      <input type="text" id="memo-title" placeholder="제목">
-    </div>
-    <div class="input-group">
-      <label for="memo-body">내용</label>
-      <textarea id="memo-body" rows="4" placeholder="내용"></textarea>
-    </div>
-    <button id="create-memo-btn" type="button">저장하기</button>
+    <label>제목</label>
+    <input type="text" id="memo-title" placeholder="제목">
+    <label>내용</label>
+    <textarea id="memo-body" placeholder="내용"></textarea>
+    <button id="save-memo-btn">저장하기</button>
   </div>
 
-  <script>
-    // Supabase 설정 및 단일 선언 (중복 선언 제거)
-    const supabaseUrl = 'https://wbsramkkihinbbwfvdhv.supabase.co';
-    const supabaseAnonKey = 'sb_publishable_argHqiur6aAESLaa3meh7g_O6DZp_cZ';
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-    const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseAnonKey) : null;
+    const supabaseUrl = 'https://igumgbitelfytidliydi.supabase.co';
+    const supabaseAnonKey = 'sb_publishable_8J_Z3OYMltWvyo5GbHOr_w_7SKxVPTE';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // DOM 요소
     const authSection = document.getElementById('auth-section');
     const memoSection = document.getElementById('memo-section');
-    const emailInput = document.getElementById('email-input');
-    const passwordInput = document.getElementById('password-input');
-    const loginBtn = document.getElementById('login-btn');
-    const signupBtn = document.getElementById('signup-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const authStatus = document.getElementById('auth-status');
+    const authError = document.getElementById('auth-error');
+    const memoError = document.getElementById('memo-error');
     const memoList = document.getElementById('memo-list');
-    const createMemoBtn = document.getElementById('create-memo-btn');
 
-    // 화면 전환
-    function showMemoScreen() {
-      authSection.classList.add('hidden');
-      memoSection.classList.remove('hidden');
-      fetchMemos();
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        showMemoSection(session);
+      } else {
+        showAuthSection();
+      }
     }
 
-    function showAuthScreen() {
+    function showAuthSection() {
       authSection.classList.remove('hidden');
       memoSection.classList.add('hidden');
-      if (authStatus) authStatus.textContent = '';
     }
 
-    // 회원가입
-    signupBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = emailInput.value.trim();
-      const password = passwordInput.value.trim();
+    function showMemoSection(session) {
+      authSection.classList.add('hidden');
+      memoSection.classList.remove('hidden');
+      loadMemos(session.access_token);
+    }
 
-      if (!email || !password) {
-        alert('이메일과 비밀번호를 모두 입력해 주세요.');
-        return;
-      }
-
-      authStatus.textContent = '회원가입 요청 중...';
-
-      try {
-        if (!supabaseClient) throw new Error('Supabase 모듈이 로드되지 않았습니다.');
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) throw error;
-
-        alert('회원가입 완료! 로그인 버튼을 눌러 접속하세요.');
-        authStatus.textContent = '회원가입 성공';
-      } catch (err) {
-        alert('회원가입 실패: ' + err.message);
-        authStatus.textContent = '오류: ' + err.message;
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      authError.textContent = '';
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        authError.textContent = '로그인 실패: ' + error.message;
+      } else {
+        showMemoSection(data.session);
       }
     });
 
-    // 로그인
-    loginBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = emailInput.value.trim();
-      const password = passwordInput.value.trim();
-
-      if (!email || !password) {
-        alert('이메일과 비밀번호를 모두 입력해 주세요.');
-        return;
-      }
-
-      authStatus.textContent = '로그인 중...';
-
-      try {
-        if (!supabaseClient) throw new Error('Supabase 모듈이 로드되지 않았습니다.');
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-
-        if (data?.session) {
-          localStorage.setItem('sb-access-token', data.session.access_token);
-          showMemoScreen();
-        }
-      } catch (err) {
-        alert('로그인 실패: ' + err.message);
-        authStatus.textContent = '로그인 실패: ' + err.message;
+    document.getElementById('signup-btn').addEventListener('click', async () => {
+      authError.textContent = '';
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        authError.textContent = '회원가입 실패: ' + error.message;
+      } else {
+        alert('회원가입 성공! 로그인해 주세요.');
       }
     });
 
-    // 로그아웃
-    logoutBtn.addEventListener('click', async () => {
-      if (supabaseClient) await supabaseClient.auth.signOut();
-      localStorage.removeItem('sb-access-token');
-      showAuthScreen();
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      showAuthSection();
     });
 
-    // 메모 조회
-    async function fetchMemos() {
-      const token = localStorage.getItem('sb-access-token');
-      if (!token) return;
-
-      memoList.innerHTML = '불러오는 중...';
-
+    async function loadMemos(token) {
+      memoError.textContent = '';
       try {
         const res = await fetch('/api/memos', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` }
         });
-
         if (!res.ok) {
           const errData = await res.json();
-          throw new Error(errData.message || '메모 조회 실패');
-        }
-
-        const data = await res.json();
-        renderMemos(data);
-      } catch (err) {
-        memoList.innerHTML = `<p style="color:red;">오류: ${err.message}</p>`;
-      }
-    }
-
-    function renderMemos(memos) {
-      if (!memos || memos.length === 0) {
-        memoList.innerHTML = '<p>저장된 내 메모가 없습니다.</p>';
-        return;
-      }
-
-      memoList.innerHTML = memos.map(m => `
-        <div class="memo-item">
-          <h4>${escapeHtml(m.title)}</h4>
-          <p>${escapeHtml(m.body)}</p>
-          <button onclick="deleteMemo(${m.id})">삭제</button>
-        </div>
-      `).join('');
-    }
-
-    // 메모 작성
-    createMemoBtn.addEventListener('click', async () => {
-      const title = document.getElementById('memo-title').value.trim();
-      const body = document.getElementById('memo-body').value.trim();
-      const token = localStorage.getItem('sb-access-token');
-
-      if (!title || !body) {
-        alert('제목과 내용을 입력해 주세요.');
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/memos', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ title, body })
-        });
-
-        if (!res.ok) throw new Error('저장 실패');
-
-        document.getElementById('memo-title').value = '';
-        document.getElementById('memo-body').value = '';
-        fetchMemos();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-
-    // 메모 삭제
-    async function deleteMemo(id) {
-      if (!confirm('삭제하시겠습니까?')) return;
-      const token = localStorage.getItem('sb-access-token');
-
-      try {
-        const res = await fetch(`/api/memos?id=${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!res.ok) throw new Error('삭제 실패');
-        fetchMemos();
-      } catch (err) {
-        alert(err.message);
-      }
-    }
-
-    function escapeHtml(text) {
-      return String(text || '').replace(/[&<>"']/g, function(m) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-      });
-    }
-
-    // 세션 유지 체크
-    window.addEventListener('DOMContentLoaded', async () => {
-      if (supabaseClient) {
-        const { data } = await supabaseClient.auth.getSession();
-        if (data?.session) {
-          localStorage.setItem('sb-access-token', data.session.access_token);
-          showMemoScreen();
+          memoError.textContent = '오류: ' + (errData.message || '자료를 불러오지 못했습니다.');
           return;
         }
+        const data = await res.json();
+        memoList.innerHTML = '';
+        data.forEach(memo => {
+          const li = document.createElement('li');
+          li.textContent = `${memo.title}: ${memo.body}`;
+          memoList.appendChild(li);
+        });
+      } catch (err) {
+        memoError.textContent = '통신 오류가 발생했습니다.';
       }
-      showAuthScreen();
+    }
+
+    document.getElementById('save-memo-btn').addEventListener('click', async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const title = document.getElementById('memo-title').value;
+      const body = document.getElementById('memo-body').value;
+
+      const res = await fetch('/api/memos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ title, body })
+      });
+
+      if (res.ok) {
+        document.getElementById('memo-title').value = '';
+        document.getElementById('memo-body').value = '';
+        loadMemos(session.access_token);
+      } else {
+        alert('저장 실패');
+      }
     });
+
+    checkSession();
   </script>
 </body>
 </html>
