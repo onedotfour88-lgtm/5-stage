@@ -1,0 +1,7 @@
+{
+  "originalApiUrl": "https://wbsramkkihinbbwfvdhv.supabase.co/rest/v1/memos",
+  "allowedRoutes": [
+    "/api/memos",
+    "/api/notes"
+  ]
+}
