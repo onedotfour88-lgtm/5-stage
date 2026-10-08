@@ -102,3 +102,29 @@
 [2026-10-08T08:40:32.722Z] [RECORD] IP:192.0.2.71 AlertID:wi-24 Reason:Normal web traffic
 [2026-10-08T08:40:32.722Z] [RECORD] IP:198.51.100.71 AlertID:wi-25 Reason:Normal web traffic
 [2026-10-08T08:40:32.723Z] [RECORD] IP:203.0.113.71 AlertID:wi-26 Reason:Normal web traffic
+[2026-10-08T08:42:57.014Z] [BLOCK] IP:203.0.113.10 AlertID:wi-01 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.016Z] [ALERT] IP:203.0.113.10 AlertID:wi-02 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.016Z] [ALERT] IP:198.51.100.15 AlertID:wi-03 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.016Z] [BLOCK] IP:192.0.2.15 AlertID:wi-04 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.017Z] [BLOCK] IP:203.0.113.18 AlertID:wi-05 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.018Z] [ALERT] IP:198.51.100.18 AlertID:wi-06 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.018Z] [ALERT] IP:192.0.2.21 AlertID:wi-07 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.019Z] [BLOCK] IP:203.0.113.22 AlertID:wi-08 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.020Z] [ALERT] IP:192.0.2.40 AlertID:wi-09 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.020Z] [ALERT] IP:198.51.100.40 AlertID:wi-10 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.020Z] [ALERT] IP:203.0.113.41 AlertID:wi-11 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.020Z] [ALERT] IP:192.0.2.41 AlertID:wi-12 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.021Z] [ALERT] IP:198.51.100.41 AlertID:wi-13 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.021Z] [BLOCK] IP:203.0.113.42 AlertID:wi-14 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.022Z] [ALERT] IP:192.0.2.42 AlertID:wi-15 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.022Z] [ALERT] IP:198.51.100.42 AlertID:wi-16 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.022Z] [ALERT] IP:203.0.113.43 AlertID:wi-17 Reason:SQL Injection Attack Attempt
+[2026-10-08T08:42:57.022Z] [RECORD] IP:192.0.2.70 AlertID:wi-18 Reason:Normal web traffic
+[2026-10-08T08:42:57.023Z] [RECORD] IP:192.0.2.70 AlertID:wi-19 Reason:Normal web traffic
+[2026-10-08T08:42:57.023Z] [RECORD] IP:198.51.100.70 AlertID:wi-20 Reason:Normal web traffic
+[2026-10-08T08:42:57.023Z] [RECORD] IP:198.51.100.70 AlertID:wi-21 Reason:Normal web traffic
+[2026-10-08T08:42:57.023Z] [RECORD] IP:203.0.113.70 AlertID:wi-22 Reason:Normal web traffic
+[2026-10-08T08:42:57.023Z] [RECORD] IP:203.0.113.70 AlertID:wi-23 Reason:Normal web traffic
+[2026-10-08T08:42:57.024Z] [RECORD] IP:192.0.2.71 AlertID:wi-24 Reason:Normal web traffic
+[2026-10-08T08:42:57.024Z] [RECORD] IP:198.51.100.71 AlertID:wi-25 Reason:Normal web traffic
+[2026-10-08T08:42:57.024Z] [RECORD] IP:203.0.113.71 AlertID:wi-26 Reason:Normal web traffic
