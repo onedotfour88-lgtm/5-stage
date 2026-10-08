@@ -12,45 +12,34 @@ const PATTERNS = [
 ];
 
 export function decide(alert) {
-  const level = alert?.rule?.level ?? 0;
-  const description = (alert?.rule?.description || alert?.rule?.comment || '').toLowerCase();
-  const groups = Array.isArray(alert?.rule?.groups) ? alert.rule.groups.map(g => String(g).toLowerCase()) : [];
-  const fullData = JSON.stringify(alert || {}).toLowerCase();
+  const level = Number(alert?.rule?.level ?? 0);
+  const desc = String(alert?.rule?.description || alert?.rule?.comment || '').toLowerCase();
+  const groups = Array.isArray(alert?.rule?.groups)
+    ? alert.rule.groups.map(g => String(g).toLowerCase())
+    : [];
 
-  // 로그인 실패 관련 키워드 검사
-  const isAuthFailure = 
-    groups.includes('authentication_failed') ||
-    groups.includes('authentication_failures') ||
-    groups.includes('invalid_login') ||
-    description.includes('failed') ||
-    description.includes('failure') ||
-    description.includes('invalid user') ||
-    description.includes('authentication failed');
+  // 키워드 및 그룹 매칭
+  const isBruteGroup = groups.includes('bruteforce') || groups.includes('brute_force');
+  const isAuthFailGroup = groups.includes('authentication_failed') || groups.includes('authentication_failures') || groups.includes('invalid_login');
+  
+  const hasBruteKeyword = desc.includes('brute force') || desc.includes('bruteforce') || desc.includes('maximum authentication attempts') || desc.includes('multiple failed');
+  const hasFailKeyword = desc.includes('failed') || desc.includes('failure') || desc.includes('invalid user');
+  const isSprayKeyword = desc.includes('spray') || desc.includes('multiple accounts');
 
-  // 무차별 대입 (Brute Force / Password Spray / Multiple Failures)
-  const isBruteForceGroup = groups.includes('bruteforce') || groups.includes('brute_force') || groups.includes('reconnaissance');
-  const isHighSeverityAttack = level >= 10 || description.includes('brute force') || description.includes('multiple failed') || description.includes('maximum authentication attempts');
-  const isSprayAttack = description.includes('spray') || fullData.includes('password spray');
-
-  // 1. 명확한 공격 (block) -> confidence >= 0.85
-  if ((isAuthFailure || isBruteForceGroup) && (isHighSeverityAttack || level >= 10)) {
+  // 1. [block] 명확한 공격 (confidence >= 0.85)
+  // - 레벨 8 이상 + Brute Force 그룹/문구 또는 반복 실패
+  // - 레벨 10 이상의 심각한 인증 관련 공격
+  if (isBruteGroup || hasBruteKeyword || (isAuthFailGroup && level >= 8) || level >= 10) {
     return {
       action: 'block',
-      confidence: 0.95,
-      reason: PATTERNS[0].name
+      confidence: 0.90,
+      reason: isSprayKeyword ? PATTERNS[1].name : PATTERNS[0].name
     };
   }
 
-  if (isSprayAttack || (isAuthFailure && level >= 8 && description.includes('multiple'))) {
-    return {
-      action: 'block',
-      confidence: 0.88,
-      reason: PATTERNS[1].name
-    };
-  }
-
-  // 2. 애매한 시도 (alert) -> 0.5 <= confidence < 0.85
-  if (isAuthFailure && (level >= 5 || description.includes('failed') || groups.includes('pam') || groups.includes('sshd'))) {
+  // 2. [alert] 애매한 시도 (0.5 <= confidence < 0.85)
+  // - 레벨 5~7 사이의 단발성 실패 / SSHD, PAM, 일반 로그인 실패 경보
+  if (isAuthFailGroup || hasFailKeyword || level >= 5 || groups.includes('pam') || groups.includes('sshd')) {
     return {
       action: 'alert',
       confidence: 0.65,
@@ -58,10 +47,11 @@ export function decide(alert) {
     };
   }
 
-  // 3. 정상 이벤트 (record) -> confidence < 0.5
+  // 3. [record] 정상 이벤트 (confidence < 0.5)
+  // - 레벨 5 미만의 일반 성공/기록 로그
   return {
     action: 'record',
     confidence: 0.10,
-    reason: 'Normal authentication or benign event'
+    reason: 'Normal authentication event'
   };
 }

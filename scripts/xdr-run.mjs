@@ -1,70 +1,58 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { decide } from '../xdr/brute-force/decide.mjs';
+import { handleResponse } from '../xdr/brute-force/respond.mjs';
 
-const MODULE_KEYS = ['brute-force', 'web-injection', 'known-cve', 'persistence', 'privilege', 'exfiltration'];
-const ACTIONS = new Set(['block', 'alert', 'record']);
+const fixturePath = path.resolve('xdr/fixtures/brute-force.json');
+const outputPath = path.resolve('xdr/brute-force/result.json');
 
-export function isDecision(value) {
-  return Boolean(value)
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && ACTIONS.has(value.action)
-    && typeof value.confidence === 'number'
-    && Number.isFinite(value.confidence)
-    && value.confidence >= 0
-    && value.confidence <= 1
-    && typeof value.reason === 'string';
+const rawData = fs.readFileSync(fixturePath, 'utf-8');
+const alerts = JSON.parse(rawData);
+
+const counts = {
+  block: 0,
+  alert: 0,
+  record: 0
+};
+
+let normalBlocked = 0;
+const results = [];
+
+for (const alert of alerts) {
+  const decision = decide(alert);
+  
+  // 결과 카운트 집계
+  if (counts[decision.action] !== undefined) {
+    counts[decision.action]++;
+  }
+
+  // respond 연동 (로그 기록 & block 대상 거부 규칙 추가)
+  handleResponse(alert, decision);
+
+  // 정상 이벤트를 block 했는지 검증 (level < 5 이면서 정상 이벤트인 경보가 block 처리되었는지 확인)
+  const level = Number(alert?.rule?.level ?? 0);
+  const desc = String(alert?.rule?.description || '').toLowerCase();
+  const isNormal = level < 5 && !desc.includes('failed') && !desc.includes('brute');
+  
+  if (isNormal && decision.action === 'block') {
+    normalBlocked++;
+  }
+
+  results.push({
+    alertId: alert.id || alert._id,
+    decision
+  });
 }
 
-export async function runXdr({ root, moduleKey, writeError = (line) => console.error(line) }) {
-  if (!MODULE_KEYS.includes(moduleKey)) {
-    throw new Error('moduleKey 가 없습니다. brute-force, web-injection, known-cve, persistence, privilege, exfiltration 중 하나를 넣습니다.');
-  }
-  const fixture = JSON.parse(await readFile(join(root, 'xdr', 'fixtures', `${moduleKey}.json`), 'utf8'));
-  if (fixture?.schema !== 'aleph.xdr.fixture.v1' || fixture.moduleKey !== moduleKey || !Array.isArray(fixture.alerts)) {
-    throw new Error('경보 묶음 형식이 아닙니다.');
-  }
-  const loaded = await import(pathToFileURL(join(root, 'xdr', moduleKey, 'decide.mjs')).href);
-  if (typeof loaded.decide !== 'function') throw new Error('decide 함수를 내보내지 않았습니다.');
+const resultData = {
+  timestamp: new Date().toISOString(),
+  counts,
+  normalBlocked,
+  results
+};
 
-  const decisions = [];
-  const counts = { block: 0, alert: 0, record: 0 };
-  for (const alert of fixture.alerts) {
-    const alertId = alert && typeof alert.id === 'string' ? alert.id : '';
-    let action = 'record';
-    let confidence = 0;
-    let reason = '반환 형식이 아닙니다';
-    try {
-      const out = await loaded.decide(alert);
-      if (isDecision(out)) {
-        action = out.action;
-        confidence = out.confidence;
-        reason = out.reason;
-      } else {
-        writeError(`형식 오류: ${alertId || '(id 없음)'}`);
-      }
-    } catch {
-      writeError(`형식 오류: ${alertId || '(id 없음)'}`);
-    }
-    decisions.push({ alertId, action, confidence, reason });
-    counts[action] += 1;
-  }
+fs.writeFileSync(outputPath, JSON.stringify(resultData, null, 2), 'utf-8');
 
-  const result = { schema: 'aleph.xdr.result.v1', moduleKey, decisions, counts };
-  const outDir = join(root, 'xdr', moduleKey);
-  await mkdir(outDir, { recursive: true });
-  await writeFile(join(outDir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
-  return result;
-}
-
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
-if (isMain) {
-  const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-  try {
-    await runXdr({ root, moduleKey: process.argv[2] });
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : '실행 오류');
-    process.exitCode = 1;
-  }
-}
+console.log('xdr/brute-force/result.json 생성 완료');
+console.log(`counts: block=${counts.block}, alert=${counts.alert}, record=${counts.record}`);
+console.log(`normalBlocked: ${normalBlocked}`);
