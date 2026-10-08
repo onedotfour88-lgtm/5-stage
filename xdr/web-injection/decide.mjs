@@ -16,6 +16,9 @@ const PATTERNS = [
   }
 ];
 
+// 동일 주소(IP)에서 반복되는 주입 공격을 추적하기 위한 메모리 카운터
+const ipAttackCounts = new Map();
+
 export function decide(alert) {
   const level = Number(alert?.rule?.level ?? 0);
   const desc = String(alert?.rule?.description || alert?.rule?.comment || '').toLowerCase();
@@ -23,33 +26,37 @@ export function decide(alert) {
     ? alert.rule.groups.map(g => String(g).toLowerCase())
     : [];
   const fullData = JSON.stringify(alert || {}).toLowerCase();
+  
+  // 출발 IP 추출
+  const srcip = alert?.data?.srcip || alert?.data?.client_ip || alert?.data?.ip || alert?.agent?.ip || 'unknown';
 
-  // 1. 주입 공격 페이로드 신호 감지
+  // 공격 페이로드 판별
   const isSql = desc.includes('sql') || desc.includes('sqli') || fullData.includes('select') || fullData.includes('union') || fullData.includes('or 1=1') || fullData.includes('drop');
   const isXss = desc.includes('xss') || desc.includes('script') || fullData.includes('<script>') || fullData.includes('javascript:') || fullData.includes('onerror=');
   const isPathTraversal = desc.includes('traversal') || desc.includes('directory') || fullData.includes('../') || fullData.includes('..\\');
 
-  const hasInjectionPayload = isSql || isXss || isPathTraversal;
-  const isWebAttackGroup = groups.includes('web') || groups.includes('web_attack') || groups.includes('sql_injection') || groups.includes('attack');
+  const isInjectionAttack = isSql || isXss || isPathTraversal || groups.includes('web_attack') || groups.includes('sql_injection');
 
-  // 사유 매칭
+  // 대응하는 근거 패턴 이름 선정
   let reason = PATTERNS[0].name;
   if (isXss) reason = PATTERNS[1].name;
   if (isPathTraversal) reason = PATTERNS[2].name;
 
-  // 1단계: [block] 명확한 주입 공격 (confidence >= 0.85)
-  // - 주입 페이로드가 존재하며 레벨이 높거나(level >= 7), 명시적인 주입/공격 경보인 경우
-  if ((hasInjectionPayload || isWebAttackGroup) && (level >= 7 || desc.includes('attack') || desc.includes('injection') || desc.includes('exploit'))) {
-    return {
-      action: 'block',
-      confidence: 0.90,
-      reason
-    };
-  }
+  if (isInjectionAttack) {
+    // 해당 IP의 공격 카운트 증가
+    const currentCount = (ipAttackCounts.get(srcip) || 0) + 1;
+    ipAttackCounts.set(srcip, currentCount);
 
-  // 2단계: [alert] 애매한 시도 (0.5 <= confidence < 0.85)
-  // - 레벨은 중간 이상(5~6)이지만 주입 키워드가 모호하거나, 덜 명확한 웹 접근 경보
-  if (hasInjectionPayload || isWebAttackGroup || level >= 5) {
+    // 1. [block] 같은 주소(IP)에서 2회 이상 반복되거나, 심각도가 높고(level >= 8) 명시적인 공격인 경우
+    if (currentCount >= 2 || level >= 8) {
+      return {
+        action: 'block',
+        confidence: 0.90,
+        reason
+      };
+    }
+
+    // 2. [alert] 1회성 단발 주입 시도나 위험도가 중간 정도인 경보
     return {
       action: 'alert',
       confidence: 0.65,
@@ -57,8 +64,16 @@ export function decide(alert) {
     };
   }
 
-  // 3단계: [record] 정상 이벤트 (confidence < 0.5)
-  // - 레벨 5 미만의 일반 웹 트래픽 및 기록용 경보
+  // 웹 관련 의심 경보 (level >= 5)
+  if (level >= 5 || groups.includes('web') || groups.includes('attack')) {
+    return {
+      action: 'alert',
+      confidence: 0.55,
+      reason
+    };
+  }
+
+  // 3. [record] 정상 요청 (level < 5)
   return {
     action: 'record',
     confidence: 0.10,
