@@ -32,6 +32,13 @@
       "expiresAt": "2026-10-09T08:30:28.709Z",
       "refAlertId": "wi-08",
       "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "203.0.113.42",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:37:19.918Z",
+      "refAlertId": "wi-14",
+      "reason": "SQL Injection Attack Attempt"
     }
   ]
 }
