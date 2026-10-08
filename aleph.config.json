@@ -39,6 +39,48 @@
       "expiresAt": "2026-10-09T08:37:19.918Z",
       "refAlertId": "wi-14",
       "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "198.51.100.15",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:45:12.976Z",
+      "refAlertId": "wi-03",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "198.51.100.18",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:45:12.979Z",
+      "refAlertId": "wi-06",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "192.0.2.21",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:45:12.981Z",
+      "refAlertId": "wi-07",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "198.51.100.40",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:45:12.983Z",
+      "refAlertId": "wi-10",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "203.0.113.41",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:45:12.984Z",
+      "refAlertId": "wi-11",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "198.51.100.42",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:45:12.987Z",
+      "refAlertId": "wi-16",
+      "reason": "SQL Injection Attack Attempt"
     }
   ]
 }
