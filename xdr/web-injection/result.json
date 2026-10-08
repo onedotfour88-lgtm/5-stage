@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-10-08T08:30:28.713Z",
+  "timestamp": "2026-10-08T08:32:39.882Z",
   "counts": {
     "block": 4,
-    "alert": 13,
-    "record": 9
+    "alert": 12,
+    "record": 10
   },
   "normalBlocked": 0,
   "results": [
@@ -19,7 +19,7 @@
       "alertId": "wi-02",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -27,7 +27,7 @@
       "alertId": "wi-03",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -51,7 +51,7 @@
       "alertId": "wi-06",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -59,7 +59,7 @@
       "alertId": "wi-07",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -75,7 +75,7 @@
       "alertId": "wi-09",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -91,7 +91,7 @@
       "alertId": "wi-11",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -99,16 +99,16 @@
       "alertId": "wi-12",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
     {
       "alertId": "wi-13",
       "decision": {
-        "action": "alert",
-        "confidence": 0.65,
-        "reason": "SQL Injection Attack Attempt"
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
       }
     },
     {
@@ -123,7 +123,7 @@
       "alertId": "wi-15",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -131,7 +131,7 @@
       "alertId": "wi-16",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -139,7 +139,7 @@
       "alertId": "wi-17",
       "decision": {
         "action": "alert",
-        "confidence": 0.65,
+        "confidence": 0.55,
         "reason": "SQL Injection Attack Attempt"
       }
     },

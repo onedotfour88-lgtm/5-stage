@@ -16,6 +16,9 @@ const PATTERNS = [
   }
 ];
 
+// 동일 IP의 반복 주입 시도를 추적하기 위한 내부 메모리 저장소
+const ipAttackCounts = new Map();
+
 export function decide(alert) {
   const level = Number(alert?.rule?.level ?? 0);
   const desc = String(alert?.rule?.description || alert?.rule?.comment || '').toLowerCase();
@@ -23,32 +26,34 @@ export function decide(alert) {
     ? alert.rule.groups.map(g => String(g).toLowerCase())
     : [];
   const fullData = JSON.stringify(alert || {}).toLowerCase();
+  const srcip = alert?.data?.srcip || alert?.data?.client_ip || alert?.data?.ip || alert?.agent?.ip || 'unknown';
 
-  const isSql = desc.includes('sql') || desc.includes('sqli') || fullData.includes('select') || fullData.includes('union') || fullData.includes('or 1=1') || fullData.includes('drop table');
+  // 1. 공격 신호 탐지 (SQLi, XSS, Path Traversal)
+  const isSql = desc.includes('sql') || desc.includes('sqli') || fullData.includes('select') || fullData.includes('union') || fullData.includes('or 1=1') || fullData.includes('drop');
   const isXss = desc.includes('xss') || desc.includes('script') || fullData.includes('<script>') || fullData.includes('javascript:') || fullData.includes('onerror=');
   const isPathTraversal = desc.includes('traversal') || desc.includes('directory') || fullData.includes('../') || fullData.includes('..\\');
+  
+  const isWebAttack = isSql || isXss || isPathTraversal || groups.includes('web') || groups.includes('web_attack') || groups.includes('sql_injection');
 
-  const isWebAttackGroup = groups.includes('web') || groups.includes('web_attack') || groups.includes('attack') || groups.includes('sql_injection');
+  // 어떤 패턴에 해당하는지 사유 매칭
+  let reason = PATTERNS[0].name;
+  if (isXss) reason = PATTERNS[1].name;
+  if (isPathTraversal) reason = PATTERNS[2].name;
 
-  // 1. [block] 명확한 공격 (confidence >= 0.85)
-  if ((isSql || isXss || isPathTraversal || isWebAttackGroup) && (level >= 8 || desc.includes('attack') || desc.includes('injection') || desc.includes('exploit'))) {
-    let reason = PATTERNS[0].name;
-    if (isXss) reason = PATTERNS[1].name;
-    if (isPathTraversal) reason = PATTERNS[2].name;
+  if (isWebAttack) {
+    const currentCount = (ipAttackCounts.get(srcip) || 0) + 1;
+    ipAttackCounts.set(srcip, currentCount);
 
-    return {
-      action: 'block',
-      confidence: 0.90,
-      reason
-    };
-  }
+    // 조건 A: 같은 주소에서 반복(2회 이상)되거나 위험도(level >= 10)가 명확한 주입 공격 -> block
+    if (currentCount >= 2 || level >= 10) {
+      return {
+        action: 'block',
+        confidence: 0.90,
+        reason
+      };
+    }
 
-  // 2. [alert] 애매한 시도 (0.5 <= confidence < 0.85)
-  if (isSql || isXss || isPathTraversal || isWebAttackGroup || level >= 5) {
-    let reason = PATTERNS[0].name;
-    if (isXss) reason = PATTERNS[1].name;
-    if (isPathTraversal) reason = PATTERNS[2].name;
-
+    // 조건 B: 반복되지 않은 단발성 주입 시도 및 중간 수준 공격 -> alert
     return {
       action: 'alert',
       confidence: 0.65,
@@ -56,7 +61,16 @@ export function decide(alert) {
     };
   }
 
-  // 3. [record] 정상 이벤트 (confidence < 0.5)
+  // 단순 웹 로그/의심 경보 중 level이 있는 경우 alert 고려
+  if (level >= 6) {
+    return {
+      action: 'alert',
+      confidence: 0.55,
+      reason: PATTERNS[0].name
+    };
+  }
+
+  // 정상 요청 -> record
   return {
     action: 'record',
     confidence: 0.10,

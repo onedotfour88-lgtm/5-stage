@@ -3,5 +3,35 @@
   "allowedRoutes": [
     "/api/memos",
     "/api/notes"
+  ],
+  "ztnaRules": [
+    {
+      "ip": "203.0.113.10",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:30:28.703Z",
+      "refAlertId": "wi-01",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "192.0.2.15",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:30:28.704Z",
+      "refAlertId": "wi-04",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "203.0.113.18",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:30:28.706Z",
+      "refAlertId": "wi-05",
+      "reason": "SQL Injection Attack Attempt"
+    },
+    {
+      "ip": "203.0.113.22",
+      "action": "DENY",
+      "expiresAt": "2026-10-09T08:30:28.709Z",
+      "refAlertId": "wi-08",
+      "reason": "SQL Injection Attack Attempt"
+    }
   ]
 }
