@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-10-08T08:45:12.990Z",
+  "timestamp": "2026-10-08T08:50:17.435Z",
   "counts": {
-    "block": 12,
-    "alert": 5,
+    "block": 6,
+    "alert": 11,
     "record": 9
   },
   "normalBlocked": 0,
@@ -18,16 +18,16 @@
     {
       "alertId": "wi-02",
       "decision": {
-        "action": "block",
-        "confidence": 0.9,
+        "action": "alert",
+        "confidence": 0.65,
         "reason": "SQL Injection Attack Attempt"
       }
     },
     {
       "alertId": "wi-03",
       "decision": {
-        "action": "block",
-        "confidence": 0.9,
+        "action": "alert",
+        "confidence": 0.65,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -50,16 +50,16 @@
     {
       "alertId": "wi-06",
       "decision": {
-        "action": "block",
-        "confidence": 0.9,
+        "action": "alert",
+        "confidence": 0.65,
         "reason": "SQL Injection Attack Attempt"
       }
     },
     {
       "alertId": "wi-07",
       "decision": {
-        "action": "block",
-        "confidence": 0.9,
+        "action": "alert",
+        "confidence": 0.65,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -90,8 +90,8 @@
     {
       "alertId": "wi-11",
       "decision": {
-        "action": "block",
-        "confidence": 0.9,
+        "action": "alert",
+        "confidence": 0.65,
         "reason": "SQL Injection Attack Attempt"
       }
     },
@@ -130,8 +130,8 @@
     {
       "alertId": "wi-16",
       "decision": {
-        "action": "block",
-        "confidence": 0.9,
+        "action": "alert",
+        "confidence": 0.65,
         "reason": "SQL Injection Attack Attempt"
       }
     },

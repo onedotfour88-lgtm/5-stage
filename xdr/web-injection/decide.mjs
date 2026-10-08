@@ -24,18 +24,20 @@ export function decide(alert) {
     : [];
   const fullData = JSON.stringify(alert || {}).toLowerCase();
 
-  // 1. 공격 유형 식별
+  // 1. 명확한 주입 공격 페이로드 존재 여부 검사
   const isSql = desc.includes('sql') || desc.includes('sqli') || fullData.includes('select') || fullData.includes('union') || fullData.includes('or 1=1') || fullData.includes('drop');
   const isXss = desc.includes('xss') || desc.includes('script') || fullData.includes('<script>') || fullData.includes('javascript:') || fullData.includes('onerror=');
   const isPathTraversal = desc.includes('traversal') || desc.includes('directory') || fullData.includes('../') || fullData.includes('..\\');
 
-  // 사유 매칭
+  const hasInjectionPayload = isSql || isXss || isPathTraversal;
+
+  // 근거 패턴 사유 매칭
   let reason = PATTERNS[0].name;
   if (isXss) reason = PATTERNS[1].name;
   if (isPathTraversal) reason = PATTERNS[2].name;
 
-  // 2. 명확한 공격 (block) - 패턴 구문이 포함되어 있거나 규칙 수준이 7 이상인 경우
-  if (isSql || isXss || isPathTraversal || level >= 7) {
+  // 1단계: [block] 명확한 주입 공격 구문이 포함된 경우
+  if (hasInjectionPayload) {
     return {
       action: 'block',
       confidence: 0.90,
@@ -43,16 +45,16 @@ export function decide(alert) {
     };
   }
 
-  // 3. 애매한 시도 (alert) - 웹 관련 그룹이거나 의심 수준(level 5~6)인 경우
-  if (level >= 5 || groups.includes('web') || groups.includes('attack')) {
+  // 2단계: [alert] 애매한 시도 (주입 구문은 없으나 의심스러운 웹 경보 및 level >= 5)
+  if (level >= 5 || groups.includes('web') || groups.includes('web_attack') || groups.includes('attack')) {
     return {
       action: 'alert',
       confidence: 0.65,
-      reason
+      reason: PATTERNS[0].name
     };
   }
 
-  // 4. 정상 이벤트 (record)
+  // 3단계: [record] 정상 이벤트
   return {
     action: 'record',
     confidence: 0.10,
