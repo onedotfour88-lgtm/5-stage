@@ -13,14 +13,27 @@ const PATTERNS = [
 
 export function decide(alert) {
   const level = alert?.rule?.level ?? 0;
-  const description = (alert?.rule?.description || '').toLowerCase();
-  const rawGroup = JSON.stringify(alert?.rule?.groups || []).toLowerCase();
+  const description = (alert?.rule?.description || alert?.rule?.comment || '').toLowerCase();
+  const groups = Array.isArray(alert?.rule?.groups) ? alert.rule.groups.map(g => String(g).toLowerCase()) : [];
+  const fullData = JSON.stringify(alert || {}).toLowerCase();
 
-  const isFailedLogin = description.includes('failed') || description.includes('failure') || rawGroup.includes('authentication_failed');
-  const isMultipleFailures = isFailedLogin && (description.includes('multiple') || description.includes('brute') || level >= 10);
-  const isPasswordSpray = description.includes('spray') || (isFailedLogin && level >= 8 && description.includes('user'));
+  // 로그인 실패 관련 키워드 검사
+  const isAuthFailure = 
+    groups.includes('authentication_failed') ||
+    groups.includes('authentication_failures') ||
+    groups.includes('invalid_login') ||
+    description.includes('failed') ||
+    description.includes('failure') ||
+    description.includes('invalid user') ||
+    description.includes('authentication failed');
 
-  if (isMultipleFailures) {
+  // 무차별 대입 (Brute Force / Password Spray / Multiple Failures)
+  const isBruteForceGroup = groups.includes('bruteforce') || groups.includes('brute_force') || groups.includes('reconnaissance');
+  const isHighSeverityAttack = level >= 10 || description.includes('brute force') || description.includes('multiple failed') || description.includes('maximum authentication attempts');
+  const isSprayAttack = description.includes('spray') || fullData.includes('password spray');
+
+  // 1. 명확한 공격 (block) -> confidence >= 0.85
+  if ((isAuthFailure || isBruteForceGroup) && (isHighSeverityAttack || level >= 10)) {
     return {
       action: 'block',
       confidence: 0.95,
@@ -28,7 +41,7 @@ export function decide(alert) {
     };
   }
 
-  if (isPasswordSpray) {
+  if (isSprayAttack || (isAuthFailure && level >= 8 && description.includes('multiple'))) {
     return {
       action: 'block',
       confidence: 0.88,
@@ -36,7 +49,8 @@ export function decide(alert) {
     };
   }
 
-  if (isFailedLogin && level >= 5) {
+  // 2. 애매한 시도 (alert) -> 0.5 <= confidence < 0.85
+  if (isAuthFailure && (level >= 5 || description.includes('failed') || groups.includes('pam') || groups.includes('sshd'))) {
     return {
       action: 'alert',
       confidence: 0.65,
@@ -44,9 +58,10 @@ export function decide(alert) {
     };
   }
 
+  // 3. 정상 이벤트 (record) -> confidence < 0.5
   return {
     action: 'record',
     confidence: 0.10,
-    reason: 'Normal authentication event'
+    reason: 'Normal authentication or benign event'
   };
 }
