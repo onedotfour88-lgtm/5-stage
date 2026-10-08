@@ -1,0 +1,17 @@
+[
+  {
+    "name": "SQL Injection Attack Attempt",
+    "condition": "SQL query syntax such as SELECT, UNION, INSERT, UPDATE, DELETE, OR 1=1, or DROP in request parameters",
+    "rationale": "MITRE ATT&CK T1190: Exploit Public-Facing Application - Injecting SQL commands into input fields to bypass auth or extract data."
+  },
+  {
+    "name": "Cross-Site Scripting (XSS) / Script Injection Attempt",
+    "condition": "Script tags or HTML event handlers like <script>, javascript:, or onerror= in input parameters",
+    "rationale": "MITRE ATT&CK T1190: Exploit Public-Facing Application - Injecting malicious scripts into web requests to execute on client browsers."
+  },
+  {
+    "name": "Path Traversal Attack Attempt",
+    "condition": "Repeated directory traversal sequences like ../ or ..\\ in request paths or parameters",
+    "rationale": "MITRE ATT&CK T1190: Exploit Public-Facing Application - Accessing restricted files outside web root using relative directory paths."
+  }
+]

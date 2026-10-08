@@ -1,0 +1,219 @@
+{
+  "timestamp": "2026-10-08T08:30:28.713Z",
+  "counts": {
+    "block": 4,
+    "alert": 13,
+    "record": 9
+  },
+  "normalBlocked": 0,
+  "results": [
+    {
+      "alertId": "wi-01",
+      "decision": {
+        "action": "block",
+        "confidence": 0.9,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-02",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-03",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-04",
+      "decision": {
+        "action": "block",
+        "confidence": 0.9,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-05",
+      "decision": {
+        "action": "block",
+        "confidence": 0.9,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-06",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-07",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-08",
+      "decision": {
+        "action": "block",
+        "confidence": 0.9,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-09",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-10",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-11",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-12",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-13",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-14",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-15",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-16",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-17",
+      "decision": {
+        "action": "alert",
+        "confidence": 0.65,
+        "reason": "SQL Injection Attack Attempt"
+      }
+    },
+    {
+      "alertId": "wi-18",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-19",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-20",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-21",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-22",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-23",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-24",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-25",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    },
+    {
+      "alertId": "wi-26",
+      "decision": {
+        "action": "record",
+        "confidence": 0.1,
+        "reason": "Normal web traffic"
+      }
+    }
+  ]
+}
