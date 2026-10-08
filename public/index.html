@@ -70,17 +70,22 @@
   </div>
 
   <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const supabaseUrl = 'https://igumgbitelfytidliydi.supabase.co';
+    const supabaseAnonKey = 'sb_publishable_8J_Z3OYMltWvyo5GbHOr_w_7SKxVPTE';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
     const authSection = document.getElementById('auth-section');
     const memoSection = document.getElementById('memo-section');
     const authError = document.getElementById('auth-error');
     const memoError = document.getElementById('memo-error');
     const memoList = document.getElementById('memo-list');
 
-    let currentToken = localStorage.getItem('access_token') || null;
-
-    function checkSession() {
-      if (currentToken) {
-        showMemoSection();
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        showMemoSection(session.access_token);
       } else {
         showAuthSection();
       }
@@ -91,10 +96,10 @@
       memoSection.classList.add('hidden');
     }
 
-    function showMemoSection() {
+    function showMemoSection(token) {
       authSection.classList.add('hidden');
       memoSection.classList.remove('hidden');
-      loadMemos();
+      loadMemos(token);
     }
 
     document.getElementById('login-btn').addEventListener('click', async () => {
@@ -102,26 +107,11 @@
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
 
-      try {
-        const res = await fetch('/api/memos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', email, password })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          authError.textContent = '로그인 실패: ' + (data.message || '인증 오류');
-          return;
-        }
-        if (data.token || data.access_token) {
-          currentToken = data.token || data.access_token;
-          localStorage.setItem('access_token', currentToken);
-          showMemoSection();
-        } else {
-          showMemoSection();
-        }
-      } catch (err) {
-        authError.textContent = '로그인 요청 중 오류가 발생했습니다.';
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        authError.textContent = '로그인 실패: ' + error.message;
+      } else {
+        showMemoSection(data.session.access_token);
       }
     });
 
@@ -130,37 +120,25 @@
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
 
-      try {
-        const res = await fetch('/api/memos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'signup', email, password })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          authError.textContent = '회원가입 실패: ' + (data.message || '오류 발생');
-        } else {
-          alert('회원가입 성공! 로그인해 주세요.');
-        }
-      } catch (err) {
-        authError.textContent = '회원가입 요청 중 오류가 발생했습니다.';
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        authError.textContent = '회원가입 실패: ' + error.message;
+      } else {
+        alert('회원가입 성공! 로그인해 주세요.');
       }
     });
 
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      currentToken = null;
-      localStorage.removeItem('access_token');
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
       showAuthSection();
     });
 
-    async function loadMemos() {
+    async function loadMemos(token) {
       memoError.textContent = '';
       try {
-        const headers = {};
-        if (currentToken) {
-          headers['Authorization'] = `Bearer ${currentToken}`;
-        }
-        const res = await fetch('/api/memos', { headers });
+        const res = await fetch('/api/memos', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (!res.ok) {
           const errData = await res.json();
           memoError.textContent = '오류: ' + (errData.message || '자료를 불러오지 못했습니다.');
@@ -181,24 +159,25 @@
     }
 
     document.getElementById('save-memo-btn').addEventListener('click', async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       const title = document.getElementById('memo-title').value;
       const body = document.getElementById('memo-body').value;
 
-      const headers = { 'Content-Type': 'application/json' };
-      if (currentToken) {
-        headers['Authorization'] = `Bearer ${currentToken}`;
-      }
-
       const res = await fetch('/api/memos', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({ title, body })
       });
 
       if (res.ok) {
         document.getElementById('memo-title').value = '';
         document.getElementById('memo-body').value = '';
-        loadMemos();
+        loadMemos(session.access_token);
       } else {
         alert('저장 실패');
       }

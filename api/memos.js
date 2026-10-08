@@ -1,46 +1,55 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://wbsramkkihinbbwfvdhv.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_argHqiur6aAESLaa3meh7g_O6DZp_cZ';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://igumgbitelfytidliydi.supabase.co';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export default async function handler(req, res) {
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // 토큰 검증 - 없으면 401 JSON
-  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized', message: '로그인이 필요합니다.' });
+    return res.status(401).json({ message: '로그인이 필요합니다.' });
   }
 
   const token = authHeader.split(' ')[1];
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) {
-    return res.status(401).json({ error: 'Unauthorized', message: '유효하지 않은 토큰입니다.' });
+  if (userError || !user) {
+    return res.status(401).json({ message: '유효하지 않은 토큰입니다.' });
   }
 
-  const userId = user.id;
-  const { method } = req;
-  const { id } = req.query;
+  if (req.method === 'GET') {
+    const { data, error } = await supabase
+      .from('memos')
+      .select('*')
+      .eq('owner_id', user.id);
 
-  if (method === 'GET') {
-    let query = supabase.from('memos').select('id, title, body').eq('owner_id', userId);
-    
-    if (id) {
-      query = query.eq('id', id);
-      const { data, error } = await query.maybeSingle();
-      if (error || !data) {
-        return res.status(404).json({ error: 'Not Found', message: '메모를 찾을 수 없습니다.' });
-      }
-      return res.status(200).json(data);
+    if (error) {
+      return res.status(500).json({ message: error.message });
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return res.status(200).json(data || []);
+    return res.status(200).json(data);
   }
 
-  return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method === 'POST') {
+    const { title, body } = req.body || {};
+    const { data, error } = await supabase
+      .from('memos')
+      .insert([{ title, body, owner_id: user.id }])
+      .select();
+
+    if (error) {
+      return res.status(500).json({ message: error.message });
+    }
+    return res.status(201).json(data[0]);
+  }
+
+  return res.status(405).json({ message: 'Method Not Allowed' });
 }
