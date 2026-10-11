@@ -1,63 +1,36 @@
 const PATTERNS = [
-  {
-    "name": "SQL Injection Attack Attempt",
-    "condition": "SQL query syntax such as SELECT, UNION, INSERT, UPDATE, DELETE, OR 1=1, or DROP in request parameters",
-    "rationale": "MITRE ATT&CK T1190: Exploit Public-Facing Application - Injecting SQL commands into input fields to bypass auth or extract data."
-  },
-  {
-    "name": "Cross-Site Scripting (XSS) / Script Injection Attempt",
-    "condition": "Script tags or HTML event handlers like <script>, javascript:, or onerror= in input parameters",
-    "rationale": "MITRE ATT&CK T1190: Exploit Public-Facing Application - Injecting malicious scripts into web requests to execute on client browsers."
-  },
-  {
-    "name": "Path Traversal Attack Attempt",
-    "condition": "Repeated directory traversal sequences like ../ or ..\\ in request paths or parameters",
-    "rationale": "MITRE ATT&CK T1190: Exploit Public-Facing Application - Accessing restricted files outside web root using relative directory paths."
-  }
+  { name: 'sql-injection', condition: '요청 인자의 SQL 결합 구문 또는 Wazuh SQL 주입 표기', evidence: 'T1190: 공개 앱의 SQL 주입 악용 사례; 시험 경보의 SQL 구문 및 조회 결합 표기.', payload: '\\bunion\\s+(?:all\\s+)?select\\b|\\bselect\\s+.+?\\s+from\\b|[\u0027\u0022]\\s*(?:or|and)\\s+[^&]+=', description: 'SQL.*(?:구문|표식)|데이터베이스 조회를 이어' },
+  { name: 'script-injection', condition: '요청 인자의 script 태그 또는 Wazuh 스크립트 삽입 표기', evidence: 'T1190의 공개 웹 앱 악용 범주에 대한 로컬 신호: 시험 경보의 반복 스크립트 삽입 표기; 태그만으로 취약점 악용 성공을 단정하지 않음.', payload: '<\\s*script\\b', description: '스크립트.*(?:삽입|표식)' },
+  { name: 'path-traversal', condition: '요청 인자의 ../ 반복 또는 Wazuh 경로 이탈 표기', evidence: 'T1190: 공개 앱 디렉터리 순회 악용 사례; 시험 경보의 여러 단계 경로 이탈 표기.', payload: '(?:\\.\\.[/\\\\]){2,}', description: '경로.*(?:거슬러|이탈)' },
+  { name: 'command-injection', condition: 'Wazuh가 명령 구분자 삽입을 보고하거나 요청 인자에 구분자와 명령이 함께 있음', evidence: 'T1190: 공개 앱 명령 주입 악용 사례; 시험 경보의 연속 명령 구분자 표기.', payload: '(?:;|\\|\\||&&)\\s*(?:cat|whoami|curl|wget|id)\\b', description: '명령 구분자 표기' }
 ];
 
 export function decide(alert) {
+  const description = typeof alert?.rule?.description === 'string' ? alert.rule.description : '';
+  const url = typeof alert?.data?.url === 'string' ? alert.data.url : '';
+  let query = url.includes('?') ? url.slice(url.indexOf('?') + 1) : '';
+  for (let i = 0; i < 2; i++) {
+    try { query = decodeURIComponent(query.replace(/\+/g, ' ')); } catch { break; }
+  }
+  const matches = PATTERNS.filter(p => new RegExp(p.payload, 'i').test(query)
+    || new RegExp(p.description, 'i').test(description));
+  const count = Number(alert?.data?.count ?? 1);
   const level = Number(alert?.rule?.level ?? 0);
-  const desc = String(alert?.rule?.description || alert?.rule?.comment || '').toLowerCase();
-  const groups = Array.isArray(alert?.rule?.groups)
-    ? alert.rule.groups.map(g => String(g).toLowerCase())
-    : [];
-  const fullData = JSON.stringify(alert || {}).toLowerCase();
-
-  // 1. 명확한 주입 공격 페이로드 존재 여부 검사
-  const isSql = desc.includes('sql') || desc.includes('sqli') || fullData.includes('select') || fullData.includes('union') || fullData.includes('or 1=1') || fullData.includes('drop');
-  const isXss = desc.includes('xss') || desc.includes('script') || fullData.includes('<script>') || fullData.includes('javascript:') || fullData.includes('onerror=');
-  const isPathTraversal = desc.includes('traversal') || desc.includes('directory') || fullData.includes('../') || fullData.includes('..\\');
-
-  const hasInjectionPayload = isSql || isXss || isPathTraversal;
-
-  // 근거 패턴 사유 매칭
-  let reason = PATTERNS[0].name;
-  if (isXss) reason = PATTERNS[1].name;
-  if (isPathTraversal) reason = PATTERNS[2].name;
-
-  // 1단계: [block] 명확한 주입 공격 구문이 포함된 경우
-  if (hasInjectionPayload) {
-    return {
-      action: 'block',
-      confidence: 0.90,
-      reason
-    };
+  let confidence = 0.1;
+  let reason = 'no-injection-pattern';
+  if (matches.length) {
+    confidence = 0.7;
+    if (Number.isFinite(count) && count >= 8 && level >= 10) confidence = 0.95;
+    reason = matches.map(p => p.name).join(', ');
+  } else {
+    const mitre = alert?.rule?.mitre;
+    const t1190 = Array.isArray(mitre) && mitre.some(x => x === 'T1190' || x?.id === 'T1190');
+    // A weak Wazuh T1190 observation remains an alert, even when no payload
+    // pattern is strong enough to justify blocking. Level alone never blocks.
+    if (t1190 && level >= 5) {
+      confidence = 0.55;
+      reason = 'T1190-ambiguous-observation';
+    }
   }
-
-  // 2단계: [alert] 애매한 시도 (주입 구문은 없으나 의심스러운 웹 경보 및 level >= 5)
-  if (level >= 5 || groups.includes('web') || groups.includes('web_attack') || groups.includes('attack')) {
-    return {
-      action: 'alert',
-      confidence: 0.65,
-      reason: PATTERNS[0].name
-    };
-  }
-
-  // 3단계: [record] 정상 이벤트
-  return {
-    action: 'record',
-    confidence: 0.10,
-    reason: 'Normal web traffic'
-  };
+  return { action: confidence >= 0.85 ? 'block' : confidence >= 0.5 ? 'alert' : 'record', confidence, reason };
 }
