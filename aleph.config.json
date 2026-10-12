@@ -1,4 +1,11 @@
 {
+  "step": 6,
+  "repoUrl": "https://github.com/onedotfour88-lgtm/5-stage",
+  "identityProvider": {
+    "issuer": "https://igumgbitelfytidliydi.supabase.co/auth/v1",
+    "audience": "authenticated",
+    "jwksUrl": "https://igumgbitelfytidliydi.supabase.co/auth/v1/.well-known/jwks.json"
+  },
   "originalApiUrl": "https://igumgbitelfytidliydi.supabase.co/rest/v1/memos",
   "allowedRoutes": [
     "/api/memos",

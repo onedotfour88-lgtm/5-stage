@@ -1,8 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { decide } from './decider.mjs';
+import { fixtureRequests } from '../scripts/fixture-7.mjs';
 
 /**
- * 2단계 공격 및 보안 상태 점검 함수
+ * 로컬 파일 및 6단계 가상 판정 요청 자기 점검 (심판 판정 아님)
  * - 각 결과 객체는 attackId, expected, observed 속성만 포함합니다.
  */
 export async function runAttackChecks() {
@@ -78,6 +81,21 @@ export async function runAttackChecks() {
     });
   }
 
+  const { normal } = fixtureRequests();
+  for (const [attackId, request, expected] of [
+    ['device-registered-fixture', normal, 'allow · approved'],
+    ['device-unregistered-fixture', { ...normal, requestId: randomUUID(), deviceRegistered: false },
+      'deny · device_not_registered'],
+    ['device-missing-fixture', { ...normal, requestId: randomUUID(), deviceRegistered: undefined },
+      'deny · device_not_registered'],
+  ]) {
+    const response = await decide(request);
+    checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
+      observed: `로컬 가상 요청: ${response.decision} · ${response.reasonCode}` });
+  }
+  checks.push({ attackId: 'registered-device-browser',
+    expected: '등록 기기에서 기존 자료실 화면과 본인 자료 읽기 성공',
+    observed: '미실행: 실제 배포 주소 및 등록 기기 접속 세션 확인 필요' });
   return checks;
 }
 
