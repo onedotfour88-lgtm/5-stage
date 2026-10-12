@@ -1,5 +1,6 @@
 {
   "step": 6,
+  "publicAppUrl": "https://5-stage.vercel.app/",
   "repoUrl": "https://github.com/onedotfour88-lgtm/5-stage",
   "identityProvider": {
     "issuer": "https://igumgbitelfytidliydi.supabase.co/auth/v1",

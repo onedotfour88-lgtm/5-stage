@@ -8,7 +8,7 @@ import { fixtureRequests } from '../scripts/fixture-7.mjs';
  * 로컬 파일 및 6단계 가상 판정 요청 자기 점검 (심판 판정 아님)
  * - 각 결과 객체는 attackId, expected, observed 속성만 포함합니다.
  */
-export async function runAttackChecks() {
+export async function runAttackChecks(config = {}) {
   const checks = [];
 
   // 1. 공개 data.json 파일 빈 배열 검사
@@ -93,9 +93,23 @@ export async function runAttackChecks() {
     checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
       observed: `로컬 가상 요청: ${response.decision} · ${response.reasonCode}` });
   }
+  if (config.publicAppUrl === 'https://5-stage.vercel.app/') {
+    let observed;
+    try {
+      const response = await fetch(config.publicAppUrl, {
+        redirect: 'error', signal: AbortSignal.timeout(10000),
+      });
+      const html = await response.text();
+      observed = `공개 페이지 HTTP ${response.status} · 로그인 화면 ${response.ok && html.includes('id="login-btn"') ? '확인' : '확인 실패'}`;
+    } catch {
+      observed = '공개 로그인 화면 요청 실패 (등록 기기 자료 읽기와 별개)';
+    }
+    checks.push({ attackId: 'public-login-screen',
+      expected: '기존 배포 주소의 공개 로그인 화면 표시', observed });
+  }
   checks.push({ attackId: 'registered-device-browser',
     expected: '등록 기기에서 기존 자료실 화면과 본인 자료 읽기 성공',
-    observed: '미실행: 실제 배포 주소 및 등록 기기 접속 세션 확인 필요' });
+    observed: '미실행: 등록 기기 및 로그인된 접속 세션 확인 필요' });
   return checks;
 }
 
