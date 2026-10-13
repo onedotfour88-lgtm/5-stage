@@ -110,3 +110,41 @@ test('POST 무인증·A 계정·본문 권한 위조·사본 없음은 짧은 �
   assert.deepEqual((await api('preview',missing)).body,{error:'backup_missing'});
   assert.equal((await api('preview',context,{method:'GET'})).code,405);
 });
+
+test('S10: 복구 POST 직전 사본 재조회 실패·메타데이터 불일치면 복원 호출 자체를 중단', async () => {
+  const hash='a'.repeat(64),currentHash='b'.repeat(64);
+  const valid={id:'2',ownerId:'test-b',version:'safe-v9',expectedBackupHash:hash,expectedCurrentHash:currentHash};
+  for (const response of ['backup_missing','backup_verification_failed',null,
+    {...valid,id:'1'},{...valid,ownerId:'test-a'},{...valid,version:'changed'},
+    {...valid,expectedBackupHash:'c'.repeat(64)},{...valid,expectedCurrentHash:'c'.repeat(64)}]) {
+    const calls=[];
+    const context={testUserId:'test-b',verify:async()=> 'test-b',async execute(id,version,actor,apply){
+      calls.push(apply);
+      if (apply) throw new Error('must_not_restore');
+      if (typeof response==='string') throw new Error(response);
+      return response;
+    }};
+    const result=await api('restore',context,{body:{version:'safe-v9',confirm:true,
+      expectedCurrentHash:currentHash,expectedBackupHash:hash}});
+    assert.equal(result.code,409);
+    assert.deepEqual(calls,[false]);
+    assert.deepEqual(Object.keys(result.body),['error']);
+  }
+});
+
+test('S10: 재조회 성공 뒤에만 복원, RPC 내부 재검증 실패도 성공으로 반환하지 않음', async () => {
+  const hash='a'.repeat(64),currentHash='b'.repeat(64);
+  for(const failDuringRestore of [false,true]) {
+    const calls=[];
+    const context={testUserId:'test-b',verify:async()=> 'test-b',async execute(id,version,actor,apply){
+      calls.push(apply);
+      if(!apply)return {id,version,ownerId:actor,expectedBackupHash:hash,expectedCurrentHash:currentHash};
+      if(failDuringRestore)throw new Error('backup_verification_failed');
+      return {id,version,ownerId:actor,contentHash:hash};
+    }};
+    const result=await api('restore',context,{body:{version:'safe-v9',confirm:true,
+      expectedCurrentHash:currentHash,expectedBackupHash:hash}});
+    assert.deepEqual(calls,[false,true]);
+    assert.equal(result.code,failDuringRestore?409:200);
+  }
+});

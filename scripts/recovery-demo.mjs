@@ -32,7 +32,8 @@ try {
     const plan = previewPolicy(state, backup.policyBackup, backup.approvedPolicyHash);
     if (action === 'preview-policy') console.log(JSON.stringify(plan, null, 2));
     else if (action === 'restore-policy') {
-      const next = restorePolicy(state, backup.policyBackup, backup.approvedPolicyHash, confirmation);
+      const fresh = load(backupPath);
+      const next = restorePolicy(state, fresh.policyBackup, backup.approvedPolicyHash, confirmation);
       save(next);
       console.log(JSON.stringify({ restoredVersion: next.policies.notes.version,
         ownAllowed: testPolicyAllows(next,{actor:'test-a',owner:'test-a',deviceRegistered:true}),
@@ -44,7 +45,8 @@ try {
       // 로컬 시험 전용입니다. 서버 API 복구는 POST preview/restore를 사용합니다.
       const current = previewMemo(state.memos[1],backup.memoBackup,backup.memoApproval,'test-b');
       if (confirmation !== current.expectedCurrentHash) throw new Error('preview_confirmation_required');
-      const next = restoreMemo(state,backup.memoBackup,backup.memoApproval,'test-b',{...current,confirm:true});
+      const fresh = load(backupPath);
+      const next = restoreMemo(state,fresh.memoBackup,backup.memoApproval,'test-b',{...current,confirm:true});
       save(next);
       console.log(JSON.stringify({id:'2',contentHash:contentHash(next.memos[1]),
         auditPreserved:JSON.stringify(next.audit.slice(0,state.audit.length))===JSON.stringify(state.audit)}));

@@ -48,6 +48,16 @@ export function createRecoveryHandler(action, { getContext = defaultContext } = 
       const actor = await context.verify(req.headers.authorization);
       if (typeof actor !== 'string' || !actor) return fail(401, 'invalid_login');
       if (actor !== context.testUserId) return fail(403, 'test_account_required');
+      if (action === 'restore') {
+        // 실행 직전에 비공개 사본을 저장소에서 다시 읽어 검증합니다. 미리보기 캐시를 쓰지 않습니다.
+        const fresh = await context.execute(match[1], body.version, actor, false);
+        if (fresh?.id !== match[1] || fresh.ownerId !== actor || fresh.version !== body.version
+            || !/^[a-f0-9]{64}$/u.test(fresh.expectedCurrentHash ?? '')
+            || !/^[a-f0-9]{64}$/u.test(fresh.expectedBackupHash ?? '')
+            || fresh.expectedBackupHash !== body.expectedBackupHash) return fail(409, 'backup_verification_failed');
+        if (fresh.expectedCurrentHash !== body.expectedCurrentHash) return fail(409, 'preview_confirmation_required');
+        // 복원 RPC도 같은 확인값으로 다시 읽고 잠금 아래 재검증하므로 중간 변경은 중단됩니다.
+      }
       const result = await context.execute(match[1], body.version, actor, action === 'restore', body);
       // DB 내부 오류·토큰·메모 내용은 반환하지 않습니다.
       if (result?.id !== match[1] || result.ownerId !== actor || result.version !== body.version) {
