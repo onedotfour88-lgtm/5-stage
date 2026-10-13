@@ -1,5 +1,6 @@
 import { parseApiResource, resourceId, validDataId } from './resources.mjs';
 import { readDeviceStatus } from './device-approval.mjs';
+import { instrumentApi, setAuditSubject } from './operations-audit.mjs';
 
 export async function serverClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -12,7 +13,7 @@ export async function serverClient() {
 
 // 의존성 주입은 서버 테스트용이며 요청 본문의 role/owner는 사용하지 않습니다.
 export function createResourceHandler(type, { getClient = serverClient, readStatus = readDeviceStatus } = {}) {
-  return async function handler(req, res) {
+  return instrumentApi(async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store');
@@ -34,6 +35,7 @@ export function createResourceHandler(type, { getClient = serverClient, readStat
       const { data: auth, error: authError } = await db.auth.getUser(match[1]);
       const user = auth?.user;
       if (authError || typeof user?.id !== 'string' || !user.id.trim()) return fail(401, 'invalid_login');
+      setAuditSubject(req, user.id);
       let device;
       try { device = await readStatus(req, user.id); }
       catch { return fail(503, 'approval_service_unavailable'); }
@@ -80,5 +82,5 @@ export function createResourceHandler(type, { getClient = serverClient, readStat
       if (error || !validRow(data, target.id)) return fail(404, 'resource_not_found');
       return res.status(200).json(tag(data));
     } catch { return fail(503, 'resource_unavailable'); }
-  };
+  }, type);
 }

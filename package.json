@@ -15,7 +15,10 @@
     "test:9": "node --test test/detection-input.test.mjs test/detection-rule.test.mjs",
     "test:10": "node --test test/recovery.test.mjs",
     "recovery:demo": "node scripts/recovery-demo.mjs",
-    "test:11": "node --test test/device-approval.test.mjs"
+    "test:11": "node --test test/device-approval.test.mjs",
+    "operations:verify": "node scripts/operations-verify.mjs",
+    "test:12": "node --test test/operations.test.mjs",
+    "operations:preview": "node scripts/operations-preview.mjs"
   },
   "engines": {
     "node": ">=22"

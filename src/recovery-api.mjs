@@ -1,4 +1,5 @@
 import { validDataId } from './resources.mjs';
+import { instrumentApi, setAuditSubject } from './operations-audit.mjs';
 
 async function defaultContext() {
   if (process.env.RECOVERY_TEST_MODE !== 'isolated'
@@ -25,7 +26,7 @@ async function defaultContext() {
 }
 
 export function createRecoveryHandler(action, { getContext = defaultContext } = {}) {
-  return async (req, res) => {
+  return instrumentApi(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     const fail = (status, error) => res.status(status).json({ error });
@@ -47,6 +48,7 @@ export function createRecoveryHandler(action, { getContext = defaultContext } = 
       const context = await getContext();
       const actor = await context.verify(req.headers.authorization);
       if (typeof actor !== 'string' || !actor) return fail(401, 'invalid_login');
+      setAuditSubject(req, actor);
       if (actor !== context.testUserId) return fail(403, 'test_account_required');
       if (action === 'restore') {
         // 실행 직전에 비공개 사본을 저장소에서 다시 읽어 검증합니다. 미리보기 캐시를 쓰지 않습니다.
@@ -77,5 +79,5 @@ export function createRecoveryHandler(action, { getContext = defaultContext } = 
       if (['backup_missing', 'backup_verification_failed', 'preview_confirmation_required'].includes(code)) return fail(409, code);
       return fail(503, 'recovery_unavailable');
     }
-  };
+  }, 'recovery-' + action);
 }

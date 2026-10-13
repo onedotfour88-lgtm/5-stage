@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { instrumentApi, setAuditSubject } from './operations-audit.mjs';
 
 // This is an adapter contract, not an implementation of the operator's device engine.
 export async function readDeviceStatus(req, userId, { action = 'status', fetcher = fetch,
@@ -38,7 +39,7 @@ export async function readDeviceStatus(req, userId, { action = 'status', fetcher
 }
 
 export function createDeviceHandler(action, { getClient, readStatus = readDeviceStatus } = {}) {
-  return async (req, res) => {
+  return instrumentApi(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     const fail = (code, error) => res.status(code).json({ error });
@@ -50,10 +51,11 @@ export function createDeviceHandler(action, { getClient, readStatus = readDevice
       const db = await getClient();
       const { data, error } = await db.auth.getUser(match[1]);
       if (error || !data?.user?.id) return fail(401, 'invalid_login');
+      setAuditSubject(req, data.user.id);
       const status = await readStatus(req, data.user.id, { action });
       if (action === 'requests' && status.sessionCookie) res.setHeader('Set-Cookie', status.sessionCookie);
       return res.status(action === 'requests' ? 202 : 200).json({ status: status.status,
         deviceRegistered: status.deviceRegistered, deviceId: status.deviceId });
     } catch { return fail(503, 'approval_service_unavailable'); }
-  };
+  }, 'device');
 }

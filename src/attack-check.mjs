@@ -6,6 +6,7 @@ import { fixtureRequests } from '../scripts/fixture-7.mjs';
 import { detect, normalizeDetectionEvents } from './detect.mjs';
 import { runRecoveryCheck } from '../scripts/fixture-10.mjs';
 import { createResourceHandler } from './resource-api.mjs';
+import { buildSnapshot } from './operations.mjs';
 
 /**
  * 로컬 파일 및 6~8단계 가상 판정 요청 자기 점검 (심판 판정 아님)
@@ -179,6 +180,15 @@ export async function runAttackChecks(config = {}) {
     })({ method: 'GET', url: '/api/memos/1', headers: { authorization: 'Bearer fixture' } }, response);
     checks.push({ attackId: 'access-app-unapproved-api', expected: '가상 승인 대기 기기의 직접 API 자료 요청 거부',
       observed: `가상 승인 대기 요청 HTTP ${response.code}; 실제 승인 엔진 연결은 미실행` });
+  }
+  if (config.step >= 12) {
+    const index = checks.findIndex(check => check.attackId === 'check-api-memos-exists');
+    if (index !== -1) checks.splice(index, 1);
+    const snapshot = buildSnapshot();
+    checks.push({ attackId:'operations-unrun-preserved', expected:'로컬 작전실 초기 표 22항목과 41종·회수·복구 미실행 구분',
+      observed:snapshot.counts.unrun === 22 && snapshot.counts.measured === 0
+        && snapshot.assault.confirmed === null && snapshot.revocation.completedAt === null && snapshot.recovery.version === null
+        ? '로컬 초기 응답: 22항목 미실행, 41종·실제 회수·복구 성공을 임의 생성하지 않음' : '작전실 초기 상태 확인 실패' });
   }
   return checks;
 }
