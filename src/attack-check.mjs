@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
+import { detect, normalizeDetectionEvents } from './detect.mjs';
 
 /**
  * 로컬 파일 및 6~8단계 가상 판정 요청 자기 점검 (심판 판정 아님)
@@ -107,9 +108,20 @@ export async function runAttackChecks(config = {}) {
       queryLength: 'id=other-owner-note'.length,
       querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') }, 'deny · starter_not_ready'],
   ]) {
+    if (config.step >= 9 && ['own-id-query-fixture', 'query-resource-selection-denied-fixture'].includes(attackId)) continue;
     const response = await decide(request);
     checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
       observed: `로컬 가상 요청: ${response.decision} · ${response.reasonCode}` });
+  }
+  if (config.step >= 9) {
+    const event = { at: '2026-10-01T00:00:00.000Z', method: 'GET', identity: { sub: 'learner_fixture' } };
+    const minimized = normalizeDetectionEvents([{ ...event, ignored: 'synthetic-extra' }]);
+    checks.push({ attackId: 'detection-input-minimized', expected: '시각·메서드·가명 사용자만 추출',
+      observed: Object.keys(minimized[0]).sort().join(',') === 'at,identity,method'
+        && Object.keys(minimized[0].identity).join(',') === 'sub' ? '세 항목만 추출 확인' : '입력 정리 실패' });
+    const result = detect(Array.from({ length: 121 }, () => event));
+    checks.push({ attackId: 'detection-contract-unavailable', expected: '복합 조건 및 대상 기기 계약이 필요',
+      observed: '미구현: 제공 사건에 네트워크·기기가 없어 ' + result.action + ' 유지. 기존 121건 회수 제안 연습은 실패' });
   }
   if (config.publicAppUrl === 'https://5-stage.vercel.app/') {
     let observed;

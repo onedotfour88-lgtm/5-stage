@@ -11,7 +11,8 @@
     "test:8": "node --test test/decider-7.test.mjs test/resource-zones.test.mjs test/decider-isolated.test.mjs test/resource-flow.test.mjs",
     "detect:test": "node scripts/detect-test.mjs",
     "fixture:7": "node scripts/fixture-7.mjs",
-    "xdr:run": "node scripts/xdr-run.mjs"
+    "xdr:run": "node scripts/xdr-run.mjs",
+    "test:9": "node --test test/detection-input.test.mjs"
   },
   "engines": {
     "node": ">=22"
