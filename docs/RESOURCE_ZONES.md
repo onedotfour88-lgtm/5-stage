@@ -42,6 +42,15 @@ GET/PUT/PATCH의 정확한 경로 및 `route`만 허용하며 알 수 없는 경
 
 ## 최종 API
 
+### 실제 메모 DB RLS 수정 (2026-10-13)
+
+실제 Supabase Policies 화면에서 `memos`의 전체 허용 정책(`ALL / public`,
+USING 및 WITH CHECK가 true)을 확인했습니다. 기존 정책 한 곳을
+`auth.uid()::text = owner_id::text`로 수정했고 저장 성공 및 저장된 조건을 재조회했습니다.
+동일한 재현 SQL은 `docs/MEMOS_OWNER_POLICY.sql`입니다. 메모 내용·소유자는 변경하지 않습니다.
+서버의 service_role은 RLS를 우회하므로 아래 API 소유자 검사도 유지합니다.
+실제 A/B 계정 조회 및 심판 재판정은 미실행입니다.
+
 - 기존 `/api/memos`, `/api/notes`, `/api/notes/:id`, `/api/memos/:id` 유지.
 - 공지 `/api/announcements/:id` 추가. 메모 읽기/수정은 GET/PUT/PATCH.
 - 쿼리는 `id`만 허용하며 경로 ID와 다르면 거부합니다. `action`, `role`, `export` 선택은 거부합니다.
