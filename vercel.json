@@ -12,7 +12,6 @@
   ],
   "rewrites": [
     { "source": "/api/notes", "destination": "/api/memos" },
-    { "source": "/api/notes/(.*)", "destination": "/api/memos" },
-    { "source": "/api/memos/(.*)", "destination": "/api/memos" }
+    { "source": "/api/memos/:id", "destination": "/api/memos?id=:id" }
   ]
 }

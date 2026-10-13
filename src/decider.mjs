@@ -1,7 +1,8 @@
 // ALEPH SDP 엔진이 확인한 요청만 받는 학생 판정기 시작점입니다.
 // 6~7단계: 등록 기기 및 엔진이 제공한 가상 복합 사건을 판정합니다.
 // 요청 본문의 userId, role, 기기 키, 토큰을 별도로 믿거나 저장하지 마세요.
-export const RULE_IDS = Object.freeze(['device_registered', 'step_up_required']);
+import { authorizeResource } from './resources.mjs';
+export const RULE_IDS = Object.freeze(['device_registered', 'step_up_required', 'resource_zones']);
 
 // 호출자는 계약대로 엔진이 검증한 요청만 전달해야 합니다.
 // 브라우저 헤더/위치나 누락된 신호를 정상값으로 변환하지 않습니다.
@@ -29,6 +30,7 @@ export async function decide(request) {
     decision, reasonCode, ruleIds,
   });
   if (!registered) return response('deny', 'device_not_registered', [RULE_IDS[0]]);
+  if (!authorizeResource(request)) return response('deny', 'resource_forbidden', ['device_registered', 'resource_zones']);
 
   const source = classifySignals(request);
   if (source === 'unknown') return response('step_up', 'step_up_required', [...RULE_IDS]);
@@ -50,6 +52,6 @@ export async function decide(request) {
     requestId: request.requestId,
     decision: 'allow',
     reasonCode: 'approved',
-    ruleIds: source === 'judge_fixture' ? [...RULE_IDS] : [RULE_IDS[0]],
+    ruleIds: source === 'judge_fixture' ? [...RULE_IDS] : ['device_registered', 'resource_zones'],
   };
 }

@@ -1,0 +1,9 @@
+{
+  "resources": [
+    { "classId": "class_fixture", "projectId": "project_fixture", "type": "memo", "id": "demo", "ownerSubjectId": "learner_fixture", "deviceIds": ["aaaaaaaaaaaaaaaa"] },
+    { "classId": "class_fixture", "projectId": "project_fixture", "type": "announcement", "id": "notice-demo", "deviceIds": ["aaaaaaaaaaaaaaaa"] }
+  ],
+  "instructors": [
+    { "classId": "class_fixture", "projectId": "project_fixture", "subjectId": "instructor_fixture", "deviceIds": ["aaaaaaaaaaaaaaaa"] }
+  ]
+}

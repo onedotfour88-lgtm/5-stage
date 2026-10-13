@@ -39,6 +39,16 @@ export async function checkDecider({ decide, ruleIds }) {
     );
   }
   const results = [];
+  if (ruleIds.includes('resource_zones')) {
+    const announcement = { ...normal, path: '/announcements/notice-demo',
+      method: 'PUT', route: 'PUT /announcements/:id' };
+    checks.push(
+      { name: 'A 자기 메모 수정', request: { ...normal, method: 'PUT', route: 'PUT /notes/:id' }, decision: 'allow' },
+      { name: 'B의 A 메모 읽기 거부', request: { ...normal, subjectId: 'other_fixture' }, decision: 'deny', reasonCode: 'resource_forbidden' },
+      { name: '일반 학생의 공지 수정 거부', request: announcement, decision: 'deny', reasonCode: 'resource_forbidden' },
+      { name: '서버 등록 강사의 공지 수정', request: { ...announcement, subjectId: 'instructor_fixture' }, decision: 'allow' },
+    );
+  }
   for (const item of checks) {
     const response = await decide(item.request);
     const valid = validResponse(item.request, response, ruleIds)
