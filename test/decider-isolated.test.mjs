@@ -24,16 +24,16 @@ test('decider source alone works without filesystem, imports or Node process glo
   const { normal, suspicious } = fixtureRequests();
   const cases = [
     { request: normal, expected: 'allow' },
-    { request: { ...normal, path: '/api/memos', route: 'GET /api/memos', queryLength: 7,
+    { request: { ...normal, path: '/notes/demo', route: 'GET /notes/:id', queryLength: 7,
       querySha256: createHash('sha256').update('id=demo').digest('hex') }, expected: 'allow' },
     { request: { ...normal, queryLength: 19, querySha256: 'a'.repeat(64) }, expected: 'deny' },
-    { request: unknownResourceRequest(), expected: 'deny' },
-    { request: { ...normal, path: '/notes/other-owner-note' }, expected: 'deny' },
+    { request: unknownResourceRequest(), expected: 'allow' },
+    { request: { ...normal, path: '/notes/other-owner-note' }, expected: 'allow' },
     { request: { ...normal, classId: 'other_class', path: '/api/memos', route: 'GET /api/memos' }, expected: 'deny' },
-    { request: { ...normal, subjectId: 'other_fixture' }, expected: 'deny' },
+    { request: { ...normal, subjectId: 'other_fixture' }, expected: 'allow' },
     { request: { ...normal, deviceRegistered: false }, expected: 'deny' },
     { request: { ...normal, path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' }, expected: 'deny' },
-    { request: { ...normal, subjectId: 'instructor_fixture', path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' }, expected: 'allow' },
+    { request: { ...normal, subjectId: 'instructor_fixture', path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' }, expected: 'deny' },
     { request: suspicious, expected: 'step_up' },
   ];
   const source = readFileSync(new URL('../src/decider.mjs', import.meta.url), 'utf8');

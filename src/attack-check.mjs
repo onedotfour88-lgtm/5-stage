@@ -92,16 +92,16 @@ export async function runAttackChecks(config = {}) {
     ['confirmed-risk-fixture', { ...suspicious, requestId: randomUUID(),
       stepUp: { verified: true, authAgeSeconds: 60 } }, 'allow · approved'],
     ['instructor-notice-fixture', { ...normal, requestId: randomUUID(), subjectId: 'instructor_fixture',
-      method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'allow · approved'],
+      method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · starter_not_ready'],
     ['unknown-source-fixture', { ...normal, requestId: randomUUID(),
       signals: { ...normal.signals, source: 'client' },
       headers: { 'x-aleph-source': 'judge_fixture', 'x-network': 'usual' } },
       'step_up · step_up_required'],
     ['missing-signals-fixture', { ...normal, requestId: randomUUID(), signals: undefined },
       'step_up · step_up_required'],
-    ['own-id-query-fixture', { ...normal, path: '/api/memos', route: 'GET /api/memos', queryLength: 7,
+    ['own-id-query-fixture', { ...normal, path: '/notes/demo', route: 'GET /notes/:id', queryLength: 7,
       querySha256: createHash('sha256').update('id=demo').digest('hex') }, 'allow · approved'],
-    ['other-owner-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'other_fixture' }, 'deny · starter_not_ready'],
+    ['memo-list-denied-fixture', { ...normal, requestId: randomUUID(), path: '/api/memos', route: 'GET /api/memos' }, 'deny · starter_not_ready'],
     ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · starter_not_ready'],
     ['query-resource-selection-denied-fixture', { ...normal, requestId: randomUUID(), path: '/api/memos', route: 'GET /api/memos',
       queryLength: 'id=other-owner-note'.length,
@@ -132,8 +132,8 @@ export async function runAttackChecks(config = {}) {
     expected: '엔진이 동일 주체의 새 로그인을 검증한 환경에서 확인 전 자료 차단 및 새 요청 허용',
     observed: '미실행: 추가 확인 요청 이후 동일 주체의 새 로그인 시각을 검증하는 실제 계약·엔진 세션 없음' });
   checks.push({ attackId: 'live-resource-zones',
-    expected: '운영 엔진 소유자 연결 및 실제 DB의 강사 권한으로 구역 접근 검증',
-    observed: '미실행: 실제 엔진 권한 등록, 공지·강사 테이블 SQL 적용 및 로그인된 운영 API 시험 필요' });
+    expected: '실제 로그인과 API의 저장된 소유자·강사 권한으로 직접 요청 구역 검증',
+    observed: '미실행: 공지·강사 테이블 SQL 적용 및 실제 A/B 로그인 운영 API 시험 필요' });
   return checks;
 }
 

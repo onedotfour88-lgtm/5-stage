@@ -3,19 +3,7 @@
 // 요청 본문의 userId, role, 기기 키, 토큰을 별도로 믿거나 저장하지 마세요.
 export const RULE_IDS = Object.freeze(['device_registered', 'step_up_required', 'resource_zones']);
 
-// 심판이 이 파일만 실행해도 동작하도록 import/파일 읽기에 의존하지 않습니다.
-// 이 정책은 기존 로컬 가상 시험용이며 실제 사용자의 소유권은 API가 확인합니다.
-const fixturePolicy = {
-  resources: [
-    { classId: 'class_fixture', projectId: 'project_fixture', type: 'memo', id: 'demo', ownerSubjectId: 'learner_fixture', deviceIds: ['aaaaaaaaaaaaaaaa'] },
-    { classId: 'class_fixture', projectId: 'project_fixture', type: 'announcement', id: 'notice-demo', deviceIds: ['aaaaaaaaaaaaaaaa'] },
-  ],
-  instructors: [
-    { classId: 'class_fixture', projectId: 'project_fixture', subjectId: 'instructor_fixture', deviceIds: ['aaaaaaaaaaaaaaaa'] },
-  ],
-};
-
-// 계약에 쿼리 원문이 없으므로 서버에 등록된 자료 ID의 정확한 id=<ID> 지문만 비교합니다.
+// 쿼리 원문이 없으므로 단건 경로 ID와 같은 id=<ID> 지문만 비교합니다.
 // ASCII 자원 ID 전용 SHA-256. 단일 소스 격리 실행에서도 외부 import가 필요 없습니다.
 function idQueryHash(id) {
   const bytes = Array.from(`id=${id}`, char => char.charCodeAt(0));
@@ -60,51 +48,36 @@ function idQueryHash(id) {
 }
 
 function authorizeResource(request) {
-  if (!Number.isSafeInteger(request.queryLength) || request.queryLength < 0
+  if (typeof request.subjectId !== 'string' || !request.subjectId.trim()
+      || typeof request.classId !== 'string' || !request.classId
+      || typeof request.projectId !== 'string' || !request.projectId
+      || !/^[a-f0-9]{16}$/u.test(request.deviceId ?? '')
+      || !Number.isSafeInteger(request.queryLength) || request.queryLength < 0
       || !/^[a-f0-9]{64}$/u.test(request.querySha256 ?? '')) return false;
   const hasQuery = request.queryLength !== 0;
   if (!hasQuery && request.querySha256 !== 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855') return false;
-  // Node 환경의 명시적 서버 정책은 유지합니다. 격리 환경에서는 process도 요구하지 않습니다.
-  const policyJson = typeof process === 'object' ? process.env?.ALEPH_RESOURCE_POLICY_JSON : undefined;
-  let policy;
-  try { policy = policyJson !== undefined ? JSON.parse(policyJson) : fixturePolicy; } catch { return false; }
-  if (!policy || !Array.isArray(policy.resources) || !Array.isArray(policy.instructors)
-      || typeof request.subjectId !== 'string' || !request.subjectId
-      || !/^[a-f0-9]{16}$/u.test(request.deviceId ?? '') || request.service !== 'notes') return false;
-  const sameScope = item => item && item.classId === request.classId && item.projectId === request.projectId;
-  const scoped = item => sameScope(item) && Array.isArray(item.deviceIds) && item.deviceIds.includes(request.deviceId);
-  const validId = id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(id)
-    && !['export','download','search','bulk','all','admin'].includes(id.toLowerCase());
-  const queryMatches = id => validId(id) && request.queryLength === 3 + id.length
-    && request.querySha256 === idQueryHash(id);
-  const collection = ['/api/memos','/api/notes','/api/announcements'].includes(request.path);
-  let type, resource;
-  if (collection) {
-    if (request.route !== `${request.method} ${request.path}`) return false;
-    type = request.path === '/api/announcements' ? 'announcement' : 'memo';
-    if (!hasQuery) {
-      if (type === 'announcement') {
-        if (request.method === 'GET') return policy.resources.some(item => scoped(item) && item.type === type);
-        return request.method === 'POST' && policy.instructors.some(item => scoped(item) && item.subjectId === request.subjectId);
-      }
-      if (type !== 'memo' || !['GET','POST'].includes(request.method)) return false;
-      return policy.resources.some(item => scoped(item) && item.type === 'memo' && item.ownerSubjectId === request.subjectId);
-    }
-    if (!['GET','PUT','PATCH'].includes(request.method)) return false;
-    resource = policy.resources.find(item => sameScope(item) && item.type === type && queryMatches(item.id));
-  } else {
-    const match = /^(\/notes|\/api\/notes|\/api\/memos|\/announcements|\/api\/announcements)\/([A-Za-z0-9_-]+)$/u.exec(request.path ?? '');
-    if (!match || request.route !== `${request.method} ${match[1]}/:id`
-        || !['GET','PUT','PATCH'].includes(request.method) || !validId(match[2])) return false;
-    if (hasQuery && !queryMatches(match[2])) return false;
-    type = match[1].includes('announcements') ? 'announcement' : 'memo';
-    resource = policy.resources.find(item => sameScope(item) && item.type === type && item.id === match[2]);
+  const memoBases = ['/notes', '/api/notes', '/api/memos'];
+  const noticeBases = ['/announcements', '/api/announcements'];
+  // 목록에는 자원 한 건이 지정되지 않습니다. 메모 전체 읽기는 누구에게나 거부합니다.
+  if (memoBases.includes(request.path)) {
+    return request.service === 'notes' && request.method === 'POST' && !hasQuery
+      && request.route === `POST ${request.path}`;
   }
-  // 경로 형식만으로 소유권을 추정하지 않습니다. 등록된 자원만 허용합니다.
-  if (!resource) return false;
-  if (!scoped(resource)) return false;
-  if (type === 'memo') return resource.ownerSubjectId === request.subjectId;
-  return request.method === 'GET' || policy.instructors.some(item => scoped(item) && item.subjectId === request.subjectId);
+  if (noticeBases.includes(request.path)) {
+    return ['notes', 'announcements'].includes(request.service) && request.method === 'GET'
+      && !hasQuery && request.route === `GET ${request.path}`;
+  }
+  const match = /^(\/notes|\/api\/notes|\/api\/memos|\/announcements|\/api\/announcements)\/([A-Za-z0-9_-]{1,128})$/u.exec(request.path ?? '');
+  if (!match || request.route !== `${request.method} ${match[1]}/:id`
+      || ['export', 'download', 'search', 'bulk', 'all', 'admin', 'list'].includes(match[2].toLowerCase())) return false;
+  const isMemo = memoBases.includes(match[1]);
+  if (isMemo ? request.service !== 'notes' || !['GET', 'PUT', 'PATCH'].includes(request.method)
+    : !['notes', 'announcements'].includes(request.service) || request.method !== 'GET') return false;
+  // 역할은 계약에 없습니다. 공지/강사 자료 쓰기는 강사 명단과 무관하게 거부합니다.
+  if (hasQuery && (request.queryLength !== 3 + match[2].length
+      || request.querySha256 !== idQueryHash(match[2]))) return false;
+  // 가명 ID에서 소유자를 추정하지 않습니다. 메모 한 건의 소유자는 최종 API가 재검증합니다.
+  return true;
 }
 
 // 호출자는 계약대로 엔진이 검증한 요청만 전달해야 합니다.

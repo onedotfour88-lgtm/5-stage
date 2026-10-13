@@ -10,81 +10,77 @@ import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
 function engine(overrides = {}) { return { ...fixtureRequests().normal, ...overrides }; }
 const notice = { path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' };
 
-test('own memo allowed; other owner denied; only server-registered instructors may edit notices', async () => {
-  for (const method of ['GET', 'PUT', 'PATCH']) {
-    const r = await decide(engine({ method, route: `${method} /notes/:id` }));
-    assert.equal(r.decision, 'allow');
-  }
-  for (const request of [engine({ subjectId: 'other_fixture' }), engine(notice)]) {
-    const r = await decide(request);
-    assert.equal(r.decision, 'deny'); assert.equal(r.reasonCode, 'starter_not_ready');
-  }
-  for (const subjectId of ['learner_fixture', 'instructor_fixture', 'other_fixture']) {
-    for (const prefix of ['/announcements', '/api/announcements']) {
-      for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
-        assert.equal((await decide(engine({ subjectId, path: `${prefix}/notice-demo`, method,
-          route: `${method} ${prefix}/:id`, stepUp: { verified: true, authAgeSeconds: 0 } }))).decision,
-          subjectId === 'instructor_fixture' && ['PUT','PATCH'].includes(method) ? 'allow' : 'deny');
+test('single memo routes pass to API ownership checks; all notice writes and memo lists deny', async () => {
+  for (const subjectId of ['learner_fixture', 'other_fixture', 'instructor_fixture']) {
+    for (const prefix of ['/notes', '/api/notes', '/api/memos']) {
+      for (const method of ['GET', 'PUT', 'PATCH']) {
+        assert.equal((await decide(engine({ subjectId, path: prefix + '/demo', method,
+          route: method + ' ' + prefix + '/:id' }))).decision, 'allow');
+      }
+      assert.equal((await decide(engine({ subjectId, path: prefix, route: 'GET ' + prefix }))).decision, 'deny');
+    }
+    for (const prefix of ['/announcements', '/api/announcements', '/notices', '/api/notices', '/materials', '/api/materials']) {
+      for (const suffix of ['', '/notice-demo']) {
+        for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+          const response = await decide(engine({ subjectId, path: prefix + suffix, method,
+            route: method + ' ' + prefix + (suffix ? '/:id' : ''),
+            stepUp: { verified: true, authAgeSeconds: 0 }, role: 'instructor' }));
+          assert.equal(response.decision, 'deny');
+          assert.equal(response.reasonCode, 'starter_not_ready');
+        }
       }
     }
   }
-  assert.equal((await decide(engine({ ...notice, method: 'GET', route: 'GET /announcements/:id' }))).decision, 'allow');
-  for (const method of ['GET', 'POST']) {
-    assert.equal((await decide(engine({ path: '/api/memos', route: `${method} /api/memos`, method }))).decision, 'allow');
-    assert.equal((await decide(engine({ path: '/api/memos', route: `${method} /api/memos`, method, subjectId: 'other_fixture' }))).decision, 'deny');
-  }
+  assert.equal((await decide(engine({ path: '/announcements/notice-demo', route: 'GET /announcements/:id' }))).decision, 'allow');
 });
 
-test('unknown exact route, device, scope, method and encoded/feature paths denied', async () => {
+test('unknown route, malformed identity/device, method and feature paths deny', async () => {
   for (const overrides of [
     { path: '/notes/export' }, { path: '/notes/demo/export' }, { path: '/notes/demo/' },
     { path: '/notes/%64emo' }, { path: '/notes/demo?action=export' }, { path: '/notes/demo/../demo' },
     { method: 'DELETE', route: 'DELETE /notes/:id' }, { route: 'GET /announcements/:id' },
-    { deviceId: 'b'.repeat(16) },
-    { subjectId: '' }, { service: 'other' },
+    { deviceId: '' }, { deviceId: 'bad' }, { subjectId: '' }, { classId: '' }, { projectId: '' },
+    { service: 'other' }, { path: '/unknown/demo', route: 'GET /unknown/:id' },
   ]) assert.equal((await decide(engine(overrides))).decision, 'deny');
   assert.equal((await decide(engine({ deviceRegistered: false }))).reasonCode, 'device_not_registered');
-  const { suspicious } = fixtureRequests();
-  assert.equal((await decide(suspicious)).decision, 'step_up');
+  assert.equal((await decide(fixtureRequests().suspicious)).decision, 'step_up');
 });
 
-test('resource selection query cannot inherit permission from a collection or another resource path', async () => {
-  for (const path of ['/notes/demo', '/api/notes/demo', '/api/memos/demo', '/api/memos', '/api/notes']) {
-    const route = `GET ${path.endsWith('/demo') ? path.slice(0, -4) + ':id' : path}`;
-    const base = engine({ path, route });
-    assert.equal((await decide(base)).decision, 'allow');
-    for (const query of ['id=demo','id=other-owner-note','action=export','id=demo&role=instructor','id=demo&id=demo']) {
-      const result = await decide({ ...base, queryLength: query.length,
-        querySha256: createHash('sha256').update(query).digest('hex') });
+test('only matching ID queries on exact single paths pass; collection queries cannot open lists', async () => {
+  for (const path of ['/notes/demo', '/api/notes/demo', '/api/memos/demo']) {
+    const route = 'GET ' + path.slice(0, -4) + ':id';
+    for (const query of ['id=demo', 'id=other-owner-note', 'action=export', 'id=demo&role=instructor', 'id=demo&id=demo']) {
+      const result = await decide(engine({ path, route, queryLength: query.length,
+        querySha256: createHash('sha256').update(query).digest('hex') }));
       assert.equal(result.decision, query === 'id=demo' ? 'allow' : 'deny');
-      assert.equal(result.reasonCode, query === 'id=demo' ? 'approved' : 'starter_not_ready');
-      if (query === 'id=demo') {
-        assert.equal((await decide({ ...base, subjectId: 'other_fixture', queryLength: query.length,
-          querySha256: createHash('sha256').update(query).digest('hex') })).decision, 'deny');
-      }
     }
-    for (const overrides of [{ queryLength: undefined }, { queryLength: '0' },
-      { queryLength: -1 }, { querySha256: undefined }, { querySha256: '0'.repeat(64) }]) {
-      assert.equal((await decide({ ...base, ...overrides })).decision, 'deny');
+  }
+  for (const path of ['/notes', '/api/notes', '/api/memos']) {
+    for (const query of ['', 'id=demo', 'action=export']) {
+      assert.equal((await decide(engine({ path, route: 'GET ' + path, queryLength: query.length,
+        querySha256: createHash('sha256').update(query).digest('hex') }))).decision, 'deny');
     }
+  }
+  for (const overrides of [{ queryLength: undefined }, { queryLength: '0' }, { queryLength: -1 },
+    { querySha256: undefined }, { querySha256: '0'.repeat(64) }]) {
+    assert.equal((await decide(engine(overrides))).decision, 'deny');
   }
 });
 
-test('S08_OTHER_ZONE_ALLOWED: unknown ownership is denied for reads, writes and lists', async () => {
-  for (let index = 0; index < 5; index++) {
-    const request = unknownResourceRequest();
-    for (const method of ['GET', 'PUT', 'PATCH']) {
-      assert.equal((await decide({ ...request, method, route: `${method} /notes/:id` })).decision, 'deny');
+test('single memo validation is independent of fixture ownership and production policy environment', async () => {
+  const previous = process.env.ALEPH_RESOURCE_POLICY_JSON;
+  try {
+    process.env.ALEPH_RESOURCE_POLICY_JSON = '{}';
+    for (let index = 0; index < 5; index++) {
+      const request = unknownResourceRequest();
+      for (const method of ['GET', 'PUT', 'PATCH']) {
+        assert.equal((await decide({ ...request, method, route: method + ' /notes/:id' })).decision, 'allow');
+      }
+      assert.equal((await decide({ ...request, signals: { source: 'none', region: 'unknown', network: 'unknown', hour: null } })).decision, 'allow');
     }
-    assert.equal((await decide({ ...request, signals: { source: 'none', region: 'unknown', network: 'unknown', hour: null } })).decision, 'deny');
-    for (const path of ['/api/memos', '/api/notes']) {
-      assert.equal((await decide({ ...request, path, route: `GET ${path}` })).decision, 'deny');
-    }
-    assert.equal((await decide(engine({ path: request.path }))).decision, 'deny');
-    assert.equal((await decide({ ...request, subjectId: 'other_virtual' })).decision, 'deny');
-    assert.equal((await decide({ ...request, deviceRegistered: false })).decision, 'deny');
-    assert.equal((await decide({ ...request, path: '/notes/export' })).decision, 'deny');
-    assert.equal((await decide({ ...request, path: '/announcements/notice-own', method: 'PUT', route: 'PUT /announcements/:id' })).decision, 'deny');
+  } finally {
+    if (previous === undefined) delete process.env.ALEPH_RESOURCE_POLICY_JSON;
+    else process.env.ALEPH_RESOURCE_POLICY_JSON = previous;
   }
 });
 
@@ -253,61 +249,13 @@ test('API rejects unauthenticated, invalid sessions and guessed feature paths', 
   assert.equal(created.code, 201); assert.equal(created.body.resourceId, 'memo:3');
 });
 
-test('production policy is server supplied and bound to exact pseudonym, device and scope', async () => {
-  const previous = process.env.ALEPH_RESOURCE_POLICY_JSON;
-  try {
-    const generated = unknownResourceRequest();
-    const id = generated.path.split('/').at(-1);
-    process.env.ALEPH_RESOURCE_POLICY_JSON = JSON.stringify({ resources: [
-      { type: 'memo', id, classId: generated.classId, projectId: generated.projectId,
-        ownerSubjectId: generated.subjectId, deviceIds: [generated.deviceId] },
-    ], instructors: [] });
-    for (const method of ['GET', 'PUT', 'PATCH']) {
-      assert.equal((await decide({ ...generated, method, route: `${method} /notes/:id` })).decision, 'allow');
-    }
-    for (const overrides of [{ subjectId: 'other_virtual' }, { deviceId: 'c'.repeat(16) },
-      { classId: 'other_class' }, { projectId: 'other_project' }, { path: '/notes/other-owner-note' }]) {
-      assert.equal((await decide({ ...generated, ...overrides })).decision, 'deny');
-    }
-    process.env.ALEPH_RESOURCE_POLICY_JSON = JSON.stringify({ resources: [
-      { type: 'memo', id: '1', classId: 'class_server', projectId: 'project_server', ownerSubjectId: 'subject_server', deviceIds: ['b'.repeat(16)] },
-    ], instructors: [] });
-    const req = engine({ classId: 'class_server', projectId: 'project_server', subjectId: 'subject_server', deviceId: 'b'.repeat(16), path: '/notes/1' });
-    assert.equal((await decide(req)).decision, 'allow');
-    assert.equal((await decide({ ...req, subjectId: 'subject_other', role: 'instructor' })).decision, 'deny');
-    process.env.ALEPH_RESOURCE_POLICY_JSON = '{}';
-    assert.equal((await decide(req)).decision, 'deny');
-  } finally {
-    if (previous === undefined) delete process.env.ALEPH_RESOURCE_POLICY_JSON;
-    else process.env.ALEPH_RESOURCE_POLICY_JSON = previous;
-  }
-});
-
-test('ID query fingerprints match Node SHA-256 across block boundaries and cannot cross registered owners', async () => {
-  const previous = process.env.ALEPH_RESOURCE_POLICY_JSON;
-  try {
-    for (const length of [1,36,52,53,61,62,116,117,128]) {
-      const ownId = 'x'.repeat(length), otherId = 'other-memo';
-      const resource = (id, ownerSubjectId) => ({ type: 'memo', id, ownerSubjectId,
-        classId: 'class_fixture', projectId: 'project_fixture', deviceIds: ['a'.repeat(16)] });
-      process.env.ALEPH_RESOURCE_POLICY_JSON = JSON.stringify({ resources: [
-        resource(ownId, 'learner_fixture'), resource(otherId, 'other_fixture'),
-      ], instructors: [] });
-      for (const method of ['GET','PUT','PATCH']) {
-        const base = engine({ path: '/api/memos', route: `${method} /api/memos`, method });
-        for (const id of [ownId, otherId]) {
-          const query = `id=${id}`;
-          const req = { ...base, queryLength: query.length,
-            querySha256: createHash('sha256').update(query).digest('hex') };
-          assert.equal((await decide(req)).decision, id === ownId ? 'allow' : 'deny');
-          assert.equal((await decide({ ...req, subjectId: 'other_fixture' })).decision, id === otherId ? 'allow' : 'deny');
-          assert.equal((await decide({ ...req, path: `/notes/${ownId}`, route: `${method} /notes/:id` })).decision,
-            id === ownId ? 'allow' : 'deny');
-        }
-      }
-    }
-  } finally {
-    if (previous === undefined) delete process.env.ALEPH_RESOURCE_POLICY_JSON;
-    else process.env.ALEPH_RESOURCE_POLICY_JSON = previous;
+test('matching single-path ID query fingerprints agree with Node SHA-256 across block boundaries', async () => {
+  for (const length of [1,36,52,53,61,62,116,117,128]) {
+    const id = 'x'.repeat(length);
+    const query = 'id=' + id;
+    const request = engine({ path: '/notes/' + id, route: 'GET /notes/:id', queryLength: query.length,
+      querySha256: createHash('sha256').update(query).digest('hex') });
+    assert.equal((await decide(request)).decision, 'allow');
+    assert.equal((await decide({ ...request, querySha256: '0'.repeat(64) })).decision, 'deny');
   }
 });

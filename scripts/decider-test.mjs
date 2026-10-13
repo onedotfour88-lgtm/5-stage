@@ -50,12 +50,12 @@ export async function checkDecider({ decide, ruleIds }) {
         queryLength: 'id=other-owner-note'.length,
         querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') },
       decision: 'deny', reasonCode: 'starter_not_ready' },
-      { name: '소유권 미확인 메모 읽기 거부', request: unknownResourceRequest(), decision: 'deny', reasonCode: 'starter_not_ready' },
+      { name: '임의 ID의 메모 단건 경로 통과 (소유자는 API 확인)', request: unknownResourceRequest(), decision: 'allow' },
       { name: 'A 자기 메모 수정', request: { ...normal, method: 'PUT', route: 'PUT /notes/:id' }, decision: 'allow' },
-      { name: 'B의 A 메모 읽기 거부', request: { ...normal, subjectId: 'other_fixture' }, decision: 'deny', reasonCode: 'starter_not_ready' },
+      { name: '메모 전체 목록 거부', request: { ...normal, path: '/api/memos', route: 'GET /api/memos' }, decision: 'deny', reasonCode: 'starter_not_ready' },
       { name: '일반 학생의 공지 수정 거부', request: announcement, decision: 'deny', reasonCode: 'starter_not_ready' },
-      { name: '서버 등록 강사의 공지 수정 허용', request: { ...announcement, subjectId: 'instructor_fixture' }, decision: 'allow' },
-      { name: '자기 자료 ID 쿼리 허용', request: { ...normal, path: '/api/memos', route: 'GET /api/memos',
+      { name: '강사도 판정기에서 공지 수정 거부', request: { ...announcement, subjectId: 'instructor_fixture' }, decision: 'deny', reasonCode: 'starter_not_ready' },
+      { name: '자기 자료 ID 쿼리 허용', request: { ...normal, path: '/notes/demo', route: 'GET /notes/:id',
         queryLength: 7, querySha256: createHash('sha256').update('id=demo').digest('hex') }, decision: 'allow' },
     );
   }
