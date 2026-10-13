@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { collectChecks } from '../src/attack-check.mjs';
-import { buildSnapshot } from '../src/operations.mjs';
+import { collectChecks } from './attack-check.mjs';
+import { buildSnapshot } from './operations.mjs';
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});

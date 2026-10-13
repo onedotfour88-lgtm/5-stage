@@ -28,7 +28,7 @@ test('summary partitions actual results and never includes official assault tota
  assert.equal(denied.failed,4);assert.equal(denied.blocked,0);
 });
 test('checks API logs exactly the safe response and rejects writes',async()=>{
- const {default:handler}=await import('../api/checks.js');const oldFetch=globalThis.fetch,oldLog=console.info;const logs=[];
+ const {default:handler}=await import('../src/checks-handler.mjs');const oldFetch=globalThis.fetch,oldLog=console.info;const logs=[];
  const res=()=>({setHeader(){},status(n){this.code=n;return this},json(v){this.body=v;return this}});
  try{globalThis.fetch=mock;console.info=row=>logs.push(JSON.parse(row));const r=res();await handler({method:'GET'},r);
  assert.equal(r.code,200);const {schema,...logged}=logs[0];assert.deepEqual(logged,r.body);

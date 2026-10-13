@@ -11,6 +11,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/checks", "destination": "/api/operations-public?view=checks" },
     { "source": "/api/notes", "destination": "/api/memos" },
     { "source": "/api/memos/:id", "destination": "/api/memos?id=:id" }
   ]
