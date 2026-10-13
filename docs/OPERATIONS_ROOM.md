@@ -9,7 +9,7 @@
 - detection: 운영 사건 조회 계약이 없으므로 eventCount=null, execution=unrun입니다. 로컬 detect:test 결과를 사건 통계로 넣지 않습니다.
 - revocation: propose_revocation은 회수 제안이며 회수 완료가 아닙니다. 기기 상태 API가 revoked를 반환했더라도 회수 요청/완료 시각과 경과 시간은 별도 증거가 없어 미확인으로 표시합니다.
 - recovery: 같은 인증 사용자에게 성공한 학생 복구 API 응답의 version만 표시합니다. 현재 서버 인스턴스에서 이 응답을 관찰하지 못했으면 null/미실행입니다. 기본 safe-v9 값이나 로컬 시험 버전을 운영 결과로 채우지 않습니다.
-- assault: total=41, confirmed=null, execution=unrun. 공식 41종 목록·실행 계약은 미제공입니다. 이 화면의 22개 대표 확인 항목은 41종 목록을 대체하지 않습니다.
+- assault: total=41, confirmed=null, execution=not_run, observed=not_run. 공식 41종 목록·실행 계약은 미제공입니다. 이 화면의 22개 대표 확인 항목은 41종 목록을 대체하지 않습니다.
 
 확인표는 src/operations-plan.mjs의 1~11단계 대표 정상/금지 요청·기대값을 사용합니다. POST /api/operations는 정해진 현재 자료실 HTTPS 주소에 **GET만** 보내며 공개 화면/빈 공개 데이터/무로그인 API/기기 상태/선택한 단건 메모 읽기만 실행합니다. 메모 본문을 응답표나 로그에 복사하지 않습니다. 쓰기·탐지 공격·회수·복구·원본 API 우회·오프라인 시험은 이 버튼으로 실행하지 않고 미실행으로 둡니다.
 
@@ -53,18 +53,9 @@ Node.js 22 이상, 현재 프로젝트의 package.json 의존성을 사용합니
 
 복구 뒤 위 정상/금지 시험을 다시 수행하고 실제 HTTP 확인표를 새로 생성합니다. 이전 자료·다른 서비스·감사 이력·다른 XDR 작업을 보존합니다. 예전 확인 결과를 새 커밋/새 복구 성공으로 복사하지 않습니다. 운영 41종은 심판이 확인할 때까지 미실행입니다.
 
-## 제출 묶음과 화면이 읽는 공개 실측 API (최신)
 
-GET /api/operations-public는 로그인·자료 ID·본문·쿠키를 받지 않고 고정 공개 HTTPS GET만 실행합니다. 공개 화면/빈 데이터/무로그인 메모 API의 결과만 포함합니다. 개인 API 기록이나 본문을 노출하지 않습니다. 공개 스냅샷의 snapshotId/rows/counts를 화면과 제출 점검이 함께 읽습니다. 이 API의 수치는 기본값이 아니라 이번에 실제 수신한 HTTP 응답에서 계산하며 실패한 요청을 통과로 채우지 않습니다.
+## 현재 제출과 공개 실측
 
-로그인 전 화면에는 이 공개 기록이 나타납니다. 개인 로그인 후 확인표는 이전 인증된 /api/operations 계약을 따릅니다. 공개 기록과 개인 기록은 각각 하나의 응답 JSON에서 수치를 표시합니다. 60초 캐시의 원래 요청 ID/시각을 유지하고 새 요청처럼 시각을 바꾸지 않습니다. 실제 41종/회수 기록은 미실행입니다.
+제출 runner는 요청을 보내지 않고 10개 항목 모두 observed=not_run으로 반환합니다. 공개 /api/operations-public는 화면/빈 데이터/무인증 API를 실제 GET으로 확인하며 화면과 가린 JSON에 같은 스냅샷을 제공합니다. 이를 제출 runner 요청 기록으로 복사하지 않습니다.
 
-제출 runner인 src/attack-check.mjs는 모든 import 없이 실행됩니다. 독립 VM 검사 npm run test:bundle은 Node process/Buffer를 제공하지 않고 모든 로컬/Node/npm import를 runner_import_failed로 거부합니다. 제출 점검은 공개 실측 API GET 한 번만 보내며 10개 점검 기록을 만듭니다. 직접 확인 4개(스냅샷/정상 화면/빈 데이터/무로그인 거부)와 미실행 6개를 구분합니다. 외부 네트워크 실패와 미실측에는 not_run을 남깁니다. 이 시험을 심판 재판정으로 부르지 않습니다.
-
-## 실행 기록과 미실행 집계의 최신 수정
-
-이전 ‘GET 한 번의 하위 결과를 네 점검으로 제출’ 방식은 심판 기록 대조에 맞지 않아 폐기했습니다. 제출 runner는 operations-snapshot-api → /api/operations-public, s01-screen → /, s02-public-data → /data.json, s03-no-login → /api/memos/1의 GET을 각각 직접 보냅니다. 각 요청에 같은 attackId 추적 메타데이터와 헤더를 넣습니다. 응답이 직접 돌아온 요청만 observed에 기록합니다. 중계 API의 하위 요청을 제출 runner가 보낸 요청으로 취급하지 않습니다.
-
-대표 확인표 counts.normalAllowed/counts.forbiddenBlocked는 실제 measured인 행만 분류합니다. 기대 일치 matched 전체를 막음으로 세지 않습니다. 미실행 및 오류 행은 제외합니다. 공식 assault 집계는 현재 total=41, executed=0, blocked=0, allowed=0, notRun=41로 별도 표시합니다. 운영 41종 기록이 아직 없으므로 대표 GET 확인을 더해 이 값을 높이지 않습니다. 화면과 가린 API JSON은 같은 각 객체의 값을 사용합니다.
-
-검사한 커밋은 git rev-parse HEAD 및 API commit으로 확인합니다. 설치·실행·중지·검증 사본 복구와 제공 ALEPH SDP 엔진의 출처는 위 실행 안내를 따릅니다. 이 수정은 학생 판정·탐지·기기 승인 규칙과 원래 자료 접근/복구 권한을 변경하지 않습니다.
+공식 assault.checks의 41개 위치는 공식 ID가 없는 미실행 자리입니다. 각 observed=not_run, attackId/requestId/checkedAt=null이며 집계는 이 목록에서 계산합니다. 대표 22행과 공식 41종은 별개입니다.

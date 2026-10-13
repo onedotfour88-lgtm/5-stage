@@ -73,6 +73,8 @@ export function buildSnapshot(inputRows=pendingRows(),commit=null,auditRows=[]){
       actual:`HTTP ${receipt.httpStatus}`+(receipt.recoveryVersion?' · '+receipt.recoveryVersion:' · '+receipt.reasonCode),
       requestId:receipt.requestId,requestIdSource:'server',checkedAt:receipt.checkedAt,commit:receipt.commit,matched:true});
   }
+  // Positions are placeholders, not invented official attack IDs or receipts.
+  const assaultChecks=Array.from({length:41},(_,index)=>({position:index+1,attackId:null,observed:'not_run',requestId:null,checkedAt:null}));
   const measured=rows.filter(row=>row.execution==='measured');
   return {schema:'aleph.operations.v1',generatedAt:new Date().toISOString(),commit:revision(commit),
     engine:{name:'ALEPH SDP 엔진',source:'제공 엔진',history:'unrun',detail:'운영 탐지·회수·41종 결과 조회 계약 미제공'},
@@ -80,7 +82,7 @@ export function buildSnapshot(inputRows=pendingRows(),commit=null,auditRows=[]){
     detection:{execution:'unrun',proposal:null,eventCount:null},
     revocation:{execution:'unrun',reportedDeviceStatus:device?.deviceStatus??null,completedAt:null,elapsedMs:null},
     recovery:restored?{execution:'measured',version:restored.recoveryVersion,requestId:restored.requestId,checkedAt:restored.checkedAt}:{execution:'unrun',version:null},
-    assault:{total:41,executed:0,blocked:0,allowed:0,notRun:41,confirmed:null,execution:'unrun',detail:'공식 41종 시험을 실행하지 않았습니다. 대표 GET 확인표와 별도 집계입니다.'},
+    assault:{total:assaultChecks.length,executed:assaultChecks.filter(row=>row.observed!=='not_run').length,blocked:assaultChecks.filter(row=>row.observed==='blocked').length,allowed:assaultChecks.filter(row=>row.observed==='allowed').length,notRun:assaultChecks.filter(row=>row.observed==='not_run').length,confirmed:null,execution:'not_run',observed:'not_run',checks:assaultChecks,detail:'공식 41종 시험을 실행하지 않았습니다. 대표 GET 확인표와 별도 집계입니다.'},
     counts:{measured:measured.length,uniqueRequests:new Set(measured.map(row=>row.requestId)).size,matched:measured.filter(row=>row.matched===true).length,
       normalAllowed:measured.filter(row=>row.kind==='normal'&&/^HTTP 2[0-9]{2}(?: |$)/u.test(row.actual??'')&&row.matched===true).length,
       forbiddenBlocked:measured.filter(row=>row.kind==='forbidden'&&/^HTTP (401|403|404)(?: |$)/u.test(row.actual??'')&&row.matched===true).length,

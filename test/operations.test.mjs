@@ -108,3 +108,13 @@ test('미실행/오류 행은 matched나 가짜 HTTP 값이 있어도 막음·�
  assert.equal(data.counts.normalAllowed,0);assert.equal(data.counts.forbiddenBlocked,0);assert.equal(data.counts.measured,0);
  assert.equal(data.assault.executed,0);assert.equal(data.assault.blocked,0);assert.equal(data.assault.allowed,0);assert.equal(data.assault.notRun,41);
 });
+
+test('공식 41종은 각 항목에 실행 증거가 없으면 not_run이며 차단/허용에 포함되지 않는다',()=>{
+ const {assault}=buildSnapshot();
+ assert.equal(assault.execution,'not_run');assert.equal(assault.observed,'not_run');
+ assert.equal(assault.checks.length,41);
+ assert.ok(assault.checks.every(row=>row.observed==='not_run'&&row.attackId===null&&row.requestId===null&&row.checkedAt===null));
+ assert.equal(assault.blocked,assault.checks.filter(row=>row.observed==='blocked').length);
+ assert.equal(assault.allowed,assault.checks.filter(row=>row.observed==='allowed').length);
+ assert.equal(assault.executed,0);assert.equal(assault.notRun,41);
+});
