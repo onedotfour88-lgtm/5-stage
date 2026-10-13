@@ -1,11 +1,10 @@
-import fs from 'node:fs/promises';
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
 import { detect, normalizeDetectionEvents } from './detect.mjs';
 import { runRecoveryCheck } from '../scripts/fixture-10.mjs';
-import { createResourceHandler } from './resource-api.mjs';
 import { buildSnapshot } from './operations.mjs';
 
 /**
@@ -140,7 +139,7 @@ export async function runAttackChecks(config = {}) {
     let observed;
     try {
       const response = await fetch(config.publicAppUrl, {
-        redirect: 'error', signal: AbortSignal.timeout(10000),
+        method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10000),
       });
       const html = await response.text();
       observed = `공개 페이지 HTTP ${response.status} · 로그인 화면 ${response.ok && html.includes('id="login-btn"') ? '확인' : '확인 실패'}`;
@@ -152,16 +151,16 @@ export async function runAttackChecks(config = {}) {
   }
   if (config.step < 10) checks.push({ attackId: 'registered-device-browser',
     expected: '등록 기기에서 기존 자료실 화면과 본인 자료 읽기 성공',
-    observed: '미실행: 등록 기기 및 로그인된 접속 세션 확인 필요' });
+    observed: 'not_run' });
   if (config.step >= 10) checks.push({ attackId: 'live-test-account-recovery',
     expected: '실제 시험 계정 B의 비공개 사본에서 단건 POST 복구',
-    observed: '미실행: 시험 테이블 SQL·사전 승인 사본·시험 B 환경 설정 및 배포 필요' });
+    observed: 'not_run' });
   checks.push({ attackId: 'live-reauthentication',
     expected: '엔진이 동일 주체의 새 로그인을 검증한 환경에서 확인 전 자료 차단 및 새 요청 허용',
-    observed: '미실행: 추가 확인 요청 이후 동일 주체의 새 로그인 시각을 검증하는 실제 계약·엔진 세션 없음' });
+    observed: 'not_run' });
   checks.push({ attackId: 'live-resource-zones',
     expected: '실제 로그인과 API의 저장된 소유자·강사 권한으로 직접 요청 구역 검증',
-    observed: '미실행: 공지·강사 테이블 SQL 적용 및 실제 A/B 로그인 운영 API 시험 필요' });
+    observed: 'not_run' });
   if (config.step >= 11) {
     // Keep the 20-item submission limit. Full prior checks remain in stage tests.
     for (const id of ['check-sensitive-keyword-leak', 'check-aleph-json-exists']) {
@@ -173,13 +172,8 @@ export async function runAttackChecks(config = {}) {
     checks.push({ attackId: 'access-app-manifest', expected: '설치 설정 및 토큰 저장 비활성화',
       observed: manifest.start_url === '/' && manifest.display === 'standalone' && app.includes('persistSession: false')
         ? '로컬 manifest 및 토큰 저장 비활성화 확인' : '설치 설정 확인 실패' });
-    const response = { setHeader() {}, status(code) { this.code = code; return this; }, json() {} };
-    await createResourceHandler('memo', {
-      getClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: 'synthetic-user' } } }) } }),
-      readStatus: async () => ({ status: 'pending', deviceRegistered: false }),
-    })({ method: 'GET', url: '/api/memos/1', headers: { authorization: 'Bearer fixture' } }, response);
     checks.push({ attackId: 'access-app-unapproved-api', expected: '가상 승인 대기 기기의 직접 API 자료 요청 거부',
-      observed: `가상 승인 대기 요청 HTTP ${response.code}; 실제 승인 엔진 연결은 미실행` });
+      observed: 'not_run' });
   }
   if (config.step >= 12) {
     const index = checks.findIndex(check => check.attackId === 'check-api-memos-exists');

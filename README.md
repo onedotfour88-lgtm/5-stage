@@ -245,3 +245,9 @@
 
 ### 이전 단계 기록
 - **1~2단계**: XDR 위협 탐지(Detect) 및 대응(Decider) 자동화 구축 완료
+
+### 12단계 수정 — S12_BUNDLE_UNSUPPORTED
+- 심판은 커밋 4238f3abd2b2의 제출 묶음이 node:net을 불러와 격리 환경에서 중단됐다고 보고했습니다. 원인은 attack-check의 자료 API 핸들러 import가 기기 승인 모듈까지 불러온 것이었습니다.
+- 제출 점검에서 운영 API 핸들러 의존성만 제거했습니다. 실제 자료 API의 기기 승인·소유권 검사와 작전실 기능은 변경하지 않습니다. fs/promises 직접 import도 허용 목록의 node:fs에서 promises를 가져오는 방식으로 맞췄습니다.
+- 제출 점검의 외부 요청은 명시적인 공개 HTTPS GET만 사용합니다. 승인 전 직접 API·실제 복구·재로그인·실제 구역 시험은 observed: not_run으로 남깁니다. 가상 판정/탐지/메모리 복구 시험은 실제 운영 API 실행으로 표시하지 않습니다.
+- 재확인: node --test test/bundle-sandbox.test.mjs 2개 통과. 깨끗한 같은 커밋 체크아웃에서 npm run bundle을 실행한 뒤, 같은 진입점에 node --experimental-loader ./test/bundle-sandbox-loader.mjs --import ./test/bundle-sandbox-setup.mjs scripts/bundle.mjs를 실행하여 두 방식 모두 정상 종료했습니다. npm 자체에 제한 로더를 적용하면 npm 시작을 막으므로 제한 검사는 제출 코드 진입점에만 적용합니다. 이 도구는 node:fs·path·url·child_process·crypto 외 import와 npm 패키지를 차단하고 외부 요청을 HTTPS GET/HEAD로 제한합니다. 개발용 제한 점검은 실제 심판 재판정을 대체하지 않습니다.
