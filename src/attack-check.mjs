@@ -1,190 +1,56 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { createHash, randomUUID } from 'node:crypto';
-import { decide } from './decider.mjs';
-import { fixtureRequests } from '../scripts/fixture-7.mjs';
-import { detect, normalizeDetectionEvents } from './detect.mjs';
-import { runRecoveryCheck } from '../scripts/fixture-10.mjs';
-import { buildSnapshot } from './operations.mjs';
-
-/**
- * 로컬 파일 및 6~8단계 가상 판정 요청 자기 점검 (심판 판정 아님)
- * - 각 결과 객체는 attackId, expected, observed 속성만 포함합니다.
- */
+// Submission runner entry: deliberately no imports, packages, filesystem, process or server handlers.
+// Read the same sanitized GET snapshot used by the operations screen.
 export async function runAttackChecks(config = {}) {
+  if (config.publicAppUrl !== 'https://5-stage.vercel.app/') throw new Error('invalid_public_app_url');
   const checks = [];
-
-  // 1. 공개 data.json 파일 빈 배열 검사
+  let snapshot = null;
+  let status = null;
   try {
-    const dataJsonPath = path.resolve('public/data.json');
-    const dataContent = await fs.readFile(dataJsonPath, 'utf8');
-    const parsed = JSON.parse(dataContent);
-    const isEmpty = Array.isArray(parsed) && parsed.length === 0;
-
-    checks.push({
-      attackId: 'check-data-json-empty',
-      expected: 'data.json이 빈 배열([])이어야 합니다.',
-      observed: isEmpty ? 'data.json이 빈 배열([])입니다.' : 'data.json에 메모 데이터가 남아있습니다.'
+    const response = await fetch('https://5-stage.vercel.app/api/operations-public', {
+      method: 'GET', redirect: 'error', cache: 'no-store',
     });
-
-    // 2. 민감 가상 메모 키워드 검색
-    const sensitiveKeywords = [
-      '프로젝트 일정 점검',
-      '서버 인프라 점검',
-      '팀 내부 미팅 공유',
-      '보안 점검 사항'
-    ];
-
-    const leakedKeyword = sensitiveKeywords.find(keyword => dataContent.includes(keyword));
-
-    checks.push({
-      attackId: 'check-sensitive-keyword-leak',
-      expected: '정적 파일 내 민감 키워드가 검색되지 않아야 합니다.',
-      observed: leakedKeyword ? `민감 키워드 발견: ${leakedKeyword}` : '정적 파일 내 민감 키워드가 없습니다.'
-    });
-  } catch (err) {
-    checks.push({
-      attackId: 'check-data-json-missing',
-      expected: '공개 data.json에 메모가 노출되지 않아야 합니다.',
-      observed: 'data.json 파일이 없거나 읽을 수 없어 노출되지 않습니다.'
-    });
-  }
-
-  // 3. Vercel Serverless API (/api/memos) 존재 검사
-  try {
-    const apiMemoPath = path.resolve('api/memos.js');
-    await fs.access(apiMemoPath);
-    checks.push({
-      attackId: 'check-api-memos-exists',
-      expected: 'api/memos.js 파일이 존재해야 합니다.',
-      observed: 'api/memos.js 파일이 정상 존재합니다.'
-    });
-  } catch (err) {
-    checks.push({
-      attackId: 'check-api-memos-exists',
-      expected: 'api/memos.js 파일이 존재해야 합니다.',
-      observed: 'api/memos.js 파일을 찾을 수 없습니다.'
-    });
-  }
-
-  // 4. aleph.json 파일 보존 검사
-  try {
-    const alephJsonPath = path.resolve('public/aleph.json');
-    await fs.access(alephJsonPath);
-    checks.push({
-      attackId: 'check-aleph-json-exists',
-      expected: 'public/aleph.json 파일이 생성 및 보존되어야 합니다.',
-      observed: 'aleph.json 파일이 정상 보존되어 있습니다.'
-    });
-  } catch (err) {
-    checks.push({
-      attackId: 'check-aleph-json-exists',
-      expected: 'public/aleph.json 파일이 생성 및 보존되어야 합니다.',
-      observed: 'aleph.json 파일이 손실되었습니다.'
-    });
-  }
-
-  const { normal, suspicious } = fixtureRequests();
-  for (const [attackId, request, expected] of [
-    ['device-registered-fixture', normal, 'allow · approved'],
-    ['device-unregistered-fixture', { ...normal, requestId: randomUUID(), deviceRegistered: false },
-      'deny · device_not_registered'],
-    ['device-missing-fixture', { ...normal, requestId: randomUUID(), deviceRegistered: undefined },
-      'deny · device_not_registered'],
-    ['compound-risk-fixture', suspicious, 'step_up · step_up_required'],
-    ['confirmed-risk-fixture', { ...suspicious, requestId: randomUUID(),
-      stepUp: { verified: true, authAgeSeconds: 60 } }, 'allow · approved'],
-    ['instructor-notice-fixture', { ...normal, requestId: randomUUID(), subjectId: 'instructor_fixture',
-      method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · starter_not_ready'],
-    ['unknown-source-fixture', { ...normal, requestId: randomUUID(),
-      signals: { ...normal.signals, source: 'client' },
-      headers: { 'x-aleph-source': 'judge_fixture', 'x-network': 'usual' } },
-      'step_up · step_up_required'],
-    ['missing-signals-fixture', { ...normal, requestId: randomUUID(), signals: undefined },
-      'step_up · step_up_required'],
-    ['own-id-query-fixture', { ...normal, path: '/notes/demo', route: 'GET /notes/:id', queryLength: 7,
-      querySha256: createHash('sha256').update('id=demo').digest('hex') }, 'allow · approved'],
-    ['memo-list-denied-fixture', { ...normal, requestId: randomUUID(), path: '/api/memos', route: 'GET /api/memos' }, 'deny · starter_not_ready'],
-    ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · starter_not_ready'],
-    ['query-resource-selection-denied-fixture', { ...normal, requestId: randomUUID(), path: '/api/memos', route: 'GET /api/memos',
-      queryLength: 'id=other-owner-note'.length,
-      querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') }, 'deny · starter_not_ready'],
+    status = response.status;
+    if (status === 200) snapshot = await response.json();
+  } catch { /* No fabricated result on network or decoding failure. */ }
+  const rows = Array.isArray(snapshot?.rows) ? snapshot.rows : [];
+  const measured = rows.filter(row => row.execution === 'measured');
+  const counts = snapshot?.counts;
+  const valid = snapshot?.schema === 'aleph.operations.v1'
+    && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u.test(snapshot.snapshotId ?? '')
+    && counts && counts.measured === measured.length
+    && counts.matched === measured.filter(row => row.matched === true).length
+    && counts.mismatched === measured.filter(row => row.matched === false).length
+    && counts.unrun === rows.filter(row => row.execution === 'unrun').length
+    && counts.errors === rows.filter(row => row.execution === 'error').length
+    && counts.uniqueRequests === new Set(measured.map(row => row.requestId)).size
+    && snapshot.assault?.execution === 'unrun' && snapshot.assault.confirmed === null;
+  checks.push({ attackId: 'operations-snapshot-api', expected: 'GET 공개 실측 API HTTP 200 및 표/서버 기록 수치 일치',
+    observed: valid ? `HTTP ${status} · snapshot ${snapshot.snapshotId} · measured=${counts.measured} matched=${counts.matched} unrun=${counts.unrun}`
+      : status === null ? 'not_run' : `HTTP ${status} · snapshot_validation_failed` });
+  for (const [caseId, expected] of [
+    ['s01-screen', '실제 정상 공개 화면 HTTP 200'],
+    ['s02-public-data', '실제 공개 데이터 HTTP 200 · 빈 배열'],
+    ['s03-no-login', '실제 무로그인 보호 API HTTP 401'],
   ]) {
-    if (config.step >= 9 && ['own-id-query-fixture', 'query-resource-selection-denied-fixture'].includes(attackId)) continue;
-    if (config.step >= 10 && ['unknown-source-fixture', 'missing-signals-fixture'].includes(attackId)) continue;
-    const response = await decide(request);
-    checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
-      observed: `로컬 가상 요청: ${response.decision} · ${response.reasonCode}` });
+    const row = valid ? rows.find(row => row.caseId === caseId) : null;
+    const safe = row?.execution === 'measured' && row.source === 'live_http'
+      && /^HTTP [1-5][0-9]{2}(?: · (?:빈 배열|공개 파일 확인 실패|[a-z_]+))?$/u.test(row.actual ?? '')
+      && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u.test(row.requestId ?? '')
+      && ['server', 'probe'].includes(row.requestIdSource)
+      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(row.checkedAt ?? '')
+      && (row.commit === null || /^[a-f0-9]{40}$/u.test(row.commit ?? ''));
+    checks.push({ attackId: caseId, expected,
+      observed: safe ? JSON.stringify({ actual: row.actual, requestId: row.requestId,
+        idSource: row.requestIdSource, checkedAt: row.checkedAt, commit: row.commit }) : 'not_run' });
   }
-  if (config.step >= 9) {
-    const event = { at: '2026-10-01T00:00:00.000Z', method: 'GET', identity: { sub: 'learner_fixture' } };
-    const minimized = normalizeDetectionEvents([{ ...event, ignored: 'synthetic-extra' }]);
-    checks.push({ attackId: 'detection-input-minimized', expected: '시각·메서드·가명 사용자만 추출',
-      observed: Object.keys(minimized[0]).sort().join(',') === 'at,identity,method'
-        && Object.keys(minimized[0].identity).join(',') === 'sub' ? '세 항목만 추출 확인' : '입력 정리 실패' });
-    const result = detect(Array.from({ length: 121 }, () => event));
-    checks.push({ attackId: 'detection-starter-burst', expected: '스타터 기준: 정상 observe / 121건 사용자 단위 burst_read 제안',
-      observed: '정상 ' + detect(Array.from({ length: 30 }, () => event)).action + ' / 121건 ' + result.action + ' · ' + result.reasonCode });
-  }
-  if (config.step >= 10) {
-    const result = runRecoveryCheck();
-    checks.push({ attackId: 'recovery-test-policy', expected: '시험 정책 복원 후 A 허용/B의 A 거부 및 다른 서비스·감사 보존',
-      observed: result.ownAllowed && result.otherDenied && result.otherServicePreserved && result.auditPreserved
-        ? '가상 복구: A 허용/B의 A 거부 및 다른 서비스·감사 보존 확인' : '가상 정책 복구 실패' });
-    checks.push({ attackId: 'recovery-test-memo', expected: 'B 메모 한 건의 ID·소유자·내용 해시 및 다른 메모 보존',
-      observed: result.memoVerified && result.otherMemoPreserved && result.auditPreserved
-        ? '가상 복구: B 한 건 검증 및 다른 메모·감사 보존 확인' : '가상 메모 복구 실패' });
-  }
-  if (config.publicAppUrl === 'https://5-stage.vercel.app/') {
-    let observed;
-    try {
-      const response = await fetch(config.publicAppUrl, {
-        method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10000),
-      });
-      const html = await response.text();
-      observed = `공개 페이지 HTTP ${response.status} · 로그인 화면 ${response.ok && html.includes('id="login-btn"') ? '확인' : '확인 실패'}`;
-    } catch {
-      observed = '공개 로그인 화면 요청 실패 (등록 기기 자료 읽기와 별개)';
-    }
-    checks.push({ attackId: 'public-login-screen',
-      expected: '기존 배포 주소의 공개 로그인 화면 표시', observed });
-  }
-  if (config.step < 10) checks.push({ attackId: 'registered-device-browser',
-    expected: '등록 기기에서 기존 자료실 화면과 본인 자료 읽기 성공',
-    observed: 'not_run' });
-  if (config.step >= 10) checks.push({ attackId: 'live-test-account-recovery',
-    expected: '실제 시험 계정 B의 비공개 사본에서 단건 POST 복구',
-    observed: 'not_run' });
-  checks.push({ attackId: 'live-reauthentication',
-    expected: '엔진이 동일 주체의 새 로그인을 검증한 환경에서 확인 전 자료 차단 및 새 요청 허용',
-    observed: 'not_run' });
-  checks.push({ attackId: 'live-resource-zones',
-    expected: '실제 로그인과 API의 저장된 소유자·강사 권한으로 직접 요청 구역 검증',
-    observed: 'not_run' });
-  if (config.step >= 11) {
-    // Keep the 20-item submission limit. Full prior checks remain in stage tests.
-    for (const id of ['check-sensitive-keyword-leak', 'check-aleph-json-exists']) {
-      const index = checks.findIndex(check => check.attackId === id);
-      if (index !== -1) checks.splice(index, 1);
-    }
-    const manifest = JSON.parse(await fs.readFile(path.resolve('public/manifest.webmanifest'), 'utf8'));
-    const app = await fs.readFile(path.resolve('public/app.mjs'), 'utf8');
-    checks.push({ attackId: 'access-app-manifest', expected: '설치 설정 및 토큰 저장 비활성화',
-      observed: manifest.start_url === '/' && manifest.display === 'standalone' && app.includes('persistSession: false')
-        ? '로컬 manifest 및 토큰 저장 비활성화 확인' : '설치 설정 확인 실패' });
-    checks.push({ attackId: 'access-app-unapproved-api', expected: '가상 승인 대기 기기의 직접 API 자료 요청 거부',
-      observed: 'not_run' });
-  }
-  if (config.step >= 12) {
-    const index = checks.findIndex(check => check.attackId === 'check-api-memos-exists');
-    if (index !== -1) checks.splice(index, 1);
-    const snapshot = buildSnapshot();
-    checks.push({ attackId:'operations-unrun-preserved', expected:'로컬 작전실 초기 표 22항목과 41종·회수·복구 미실행 구분',
-      observed:snapshot.counts.unrun === 22 && snapshot.counts.measured === 0
-        && snapshot.assault.confirmed === null && snapshot.revocation.completedAt === null && snapshot.recovery.version === null
-        ? '로컬 초기 응답: 22항목 미실행, 41종·실제 회수·복구 성공을 임의 생성하지 않음' : '작전실 초기 상태 확인 실패' });
-  }
+  for (const [attackId, expected] of [
+    ['protected-own-api', '실제 로그인·등록 기기의 자기 자료 허용'],
+    ['protected-other-api', '실제 다른 소유자의 자료 거부'],
+    ['live-reauthentication', '운영 엔진의 새 로그인 검증 후 재판정'],
+    ['live-test-account-recovery', '검증 사본의 시험 B 한 건 POST 복구'],
+    ['live-revocation', '운영 엔진의 실제 회수 확인'],
+    ['assault-41', '공식 41종 총공세 방어 판정'],
+  ]) checks.push({ attackId, expected, observed: 'not_run' });
   return checks;
 }
-
 export default runAttackChecks;

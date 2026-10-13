@@ -84,3 +84,18 @@ test('작전실 화면은 동일 스냅샷의 수치·행·가린 응답을 사�
  document.hidden=true;events.visibilitychange();assert.equal(get('masked-record').textContent,'');assert.equal(get('results').children.length,0);
  assert.equal(typeof get('resume').onclick,'function');
 });
+
+test('로그인 전 공개 실측 화면과 가린 서버 응답의 3건·19건 수치가 일치한다',async()=>{
+ const elements=new Map();const get=id=>{if(!elements.has(id))elements.set(id,{value:'',textContent:'',children:[],parentElement:{},classList:{add(){},remove(){}},replaceChildren(){this.children=[];},append(v){this.children.push(v);}});return elements.get(id);};
+ const rows=(await import('../src/operations-plan.mjs')).pendingRows();
+ for(const id of ['s01-screen','s02-public-data','s03-no-login'])Object.assign(rows.find(r=>r.caseId===id),{execution:'measured',source:'live_http',actual:id==='s03-no-login'?'HTTP 401':'HTTP 200',requestId:UUID,requestIdSource:'server',checkedAt:'2026-10-13T00:00:00.000Z',matched:true});
+ const data=buildSnapshot(rows);data.snapshotId=UUID;
+ const document={getElementById:get,createElement:()=>({append(){}}),addEventListener(){}};
+ const source=await readFile('public/operations-app.mjs','utf8');const AsyncFunction=Object.getPrototypeOf(async()=>{}).constructor;
+ let requested;
+ await new AsyncFunction('document','window','navigator','fetch','location',source)(document,{addEventListener(){}},{onLine:true},async(url,options)=>{requested={url,...options};return{ok:true,json:async()=>data};},{origin:'https://5-stage.vercel.app'});
+ assert.equal(requested.url,'/api/operations-public');assert.equal(requested.credentials,'omit');
+ assert.match(get('counts').textContent,/실측 3/);assert.match(get('counts').textContent,/미실행 19/);
+ assert.equal(get('results').children.length,22);assert.equal(get('verify').disabled,true);
+ assert.deepEqual(JSON.parse(get('masked-record').textContent).counts,data.counts);
+});

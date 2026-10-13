@@ -18,7 +18,8 @@
     "test:11": "node --test test/device-approval.test.mjs",
     "operations:verify": "node scripts/operations-verify.mjs",
     "test:12": "node --test test/operations.test.mjs",
-    "operations:preview": "node scripts/operations-preview.mjs"
+    "operations:preview": "node scripts/operations-preview.mjs",
+    "test:bundle": "node --experimental-vm-modules --test test/bundle-sandbox.test.mjs"
   },
   "engines": {
     "node": ">=22"

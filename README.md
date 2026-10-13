@@ -251,3 +251,12 @@
 - 제출 점검에서 운영 API 핸들러 의존성만 제거했습니다. 실제 자료 API의 기기 승인·소유권 검사와 작전실 기능은 변경하지 않습니다. fs/promises 직접 import도 허용 목록의 node:fs에서 promises를 가져오는 방식으로 맞췄습니다.
 - 제출 점검의 외부 요청은 명시적인 공개 HTTPS GET만 사용합니다. 승인 전 직접 API·실제 복구·재로그인·실제 구역 시험은 observed: not_run으로 남깁니다. 가상 판정/탐지/메모리 복구 시험은 실제 운영 API 실행으로 표시하지 않습니다.
 - 재확인: node --test test/bundle-sandbox.test.mjs 2개 통과. 깨끗한 같은 커밋 체크아웃에서 npm run bundle을 실행한 뒤, 같은 진입점에 node --experimental-loader ./test/bundle-sandbox-loader.mjs --import ./test/bundle-sandbox-setup.mjs scripts/bundle.mjs를 실행하여 두 방식 모두 정상 종료했습니다. npm 자체에 제한 로더를 적용하면 npm 시작을 막으므로 제한 검사는 제출 코드 진입점에만 적용합니다. 이 도구는 node:fs·path·url·child_process·crypto 외 import와 npm 패키지를 차단하고 외부 요청을 HTTPS GET/HEAD로 제한합니다. 개발용 제한 점검은 실제 심판 재판정을 대체하지 않습니다.
+
+### 12단계 수정 — runner_import_failed와 실제 API 기록 연결
+- 커밋 44916ded7ec1은 심판에서 제출 묶음 runner_import_failed와 S12_SCREEN_MISMATCH, 30/100점으로 보고됐습니다. 내부 import 실패 대상은 제공되지 않아 정확한 심판 원인은 미확정입니다.
+- src/attack-check.mjs를 import·npm 패키지·파일 시스템·Node process 없이 실행하는 독립 함수로 바꿨습니다. 판정/탐지/복구의 기존 단위 시험과 실제 API 기능은 유지합니다. 제출 점검은 고정 HTTPS GET으로 /api/operations-public의 실측 기록만 읽습니다.
+- GET /api/operations-public는 공개 화면·빈 공개 데이터·무로그인 자료 API에 GET 3건을 실제 보내고 결과 표와 집계를 같은 스냅샷으로 반환합니다. 인증 헤더/쿠키를 전달하지 않고 개인 감사 기록·메모 본문을 포함하지 않습니다. 동일 기록을 최대 60초 재사용하고 기록 ID·원래 시각을 유지합니다.
+- 작전실은 로그인 전에도 이 실제 API의 표·수치와 가린 JSON을 함께 표시합니다. 제출 묶음에도 정상/금지 실측 결과와 요청 ID·ID 출처·시각·확인한 API 커밋을 같은 응답에서 추출하여 남깁니다. 없는 결과를 3/3처럼 채우지 않으며 실패하면 not_run 또는 실제 실패 상태입니다.
+- 공개 실측 3항목은 공개 정상 2항목/무로그인 금지 1항목입니다. 인증된 자료·운영 탐지/회수/복구·공식 41종은 여전히 미실행입니다. 22개 대표 표와 41종 총공세를 구분합니다.
+- 제한 시험은 npm run test:bundle로 실행합니다. 모든 import를 runner_import_failed로 차단하고 process/Buffer가 없는 별도 VM에서 제출 함수를 실행합니다. 로컬 시험이 실제 심판 통과를 뜻하지 않습니다.
+- 설치·실행·중지·복구 및 학생/제공 ALEPH SDP 엔진 구분은 위 12단계 안내와 docs/OPERATIONS_ROOM.md를 따릅니다. 재현할 때 git rev-parse HEAD를 기록하고 새 커밋의 API 응답 commit과 비교합니다.
