@@ -29,6 +29,8 @@ export function instrumentApi(handler, kind, { emit = row => console.info(JSON.s
         service:kind, method:['GET','POST','PUT','PATCH','DELETE','OPTIONS'].includes(req.method) ? req.method : 'UNKNOWN',
         subject:subjects.get(req) ?? null, httpStatus: Number.isInteger(status) ? status : null,
         reasonCode:REASONS.includes(payload?.error) ? payload.error : null };
+      const attackId=req.headers?.['x-aleph-attack-id']??req.headers?.['X-Aleph-Attack-Id'];
+      if(/^[a-z0-9][a-z0-9_.-]{0,79}$/u.test(attackId??''))row.attackId=attackId;
       if (kind === 'device' && status === 200 && ['pending','approved','denied','revoked'].includes(payload?.status)) row.deviceStatus = payload.status;
       if (kind === 'recovery-restore' && status === 200 && /^[A-Za-z0-9_-]{1,80}$/u.test(payload?.version ?? '')) row.recoveryVersion = payload.version;
       journal.push(Object.freeze(row));

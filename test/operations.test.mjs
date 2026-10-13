@@ -99,3 +99,12 @@ test('로그인 전 공개 실측 화면과 가린 서버 응답의 3건·19건 
  assert.equal(get('results').children.length,22);assert.equal(get('verify').disabled,true);
  assert.deepEqual(JSON.parse(get('masked-record').textContent).counts,data.counts);
 });
+
+test('미실행/오류 행은 matched나 가짜 HTTP 값이 있어도 막음·허용 집계에서 제외한다',async()=>{
+ const rows=(await import('../src/operations-plan.mjs')).pendingRows();
+ Object.assign(rows.find(r=>r.caseId==='s03-no-login'),{execution:'unrun',matched:true,actual:'HTTP 401'});
+ Object.assign(rows.find(r=>r.caseId==='s01-screen'),{execution:'error',matched:true,actual:'HTTP 200'});
+ const data=buildSnapshot(rows);
+ assert.equal(data.counts.normalAllowed,0);assert.equal(data.counts.forbiddenBlocked,0);assert.equal(data.counts.measured,0);
+ assert.equal(data.assault.executed,0);assert.equal(data.assault.blocked,0);assert.equal(data.assault.allowed,0);assert.equal(data.assault.notRun,41);
+});

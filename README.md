@@ -260,3 +260,10 @@
 - 공개 실측 3항목은 공개 정상 2항목/무로그인 금지 1항목입니다. 인증된 자료·운영 탐지/회수/복구·공식 41종은 여전히 미실행입니다. 22개 대표 표와 41종 총공세를 구분합니다.
 - 제한 시험은 npm run test:bundle로 실행합니다. 모든 import를 runner_import_failed로 차단하고 process/Buffer가 없는 별도 VM에서 제출 함수를 실행합니다. 로컬 시험이 실제 심판 통과를 뜻하지 않습니다.
 - 설치·실행·중지·복구 및 학생/제공 ALEPH SDP 엔진 구분은 위 12단계 안내와 docs/OPERATIONS_ROOM.md를 따릅니다. 재현할 때 git rev-parse HEAD를 기록하고 새 커밋의 API 응답 commit과 비교합니다.
+
+### 12단계 수정 — 실행 기록 대조와 S12_UNRUN_COUNTED
+- 심판은 e4c5726c2796의 operations-snapshot-api/s01-screen/s02-public-data/s03-no-login에 같은 attackId의 직접 요청 기록이 없다고 보고했습니다. 이전 제출 점검이 공개 API가 대신 보낸 하위 요청 결과를 자신의 직접 실행 결과로 복사한 것이 잘못이었습니다.
+- 제출 점검은 이제 네 항목마다 해당 URL로 직접 GET을 보냅니다. init.attackId와 추적용 X-Aleph-Attack-Id/X-Attack-Id에 같은 ID를 넣습니다. 이 값은 기록 연결용 이름이며 로그인·역할·기기 승인 근거로 사용하지 않습니다. 응답을 직접 받은 항목만 HTTP 결과·응답 ID(없으면 not_provided)·수신 시각을 남깁니다. 실제 응답 없는 점검과 수행하지 않은 여섯 항목은 observed: not_run입니다.
+- 대표 확인표의 정상 허용은 실제 measured/정상/기대 일치 HTTP 2xx, 금지 거부는 실제 measured/금지/기대 일치 HTTP 401·403·404만 셉니다. 미실행·오류·임의 matched 값은 제외합니다. 이 집계를 공식 41종 방어 수로 합산하지 않습니다.
+- 공식 41종은 시험 기록이 없으므로 실행 0·막음 0·허용 0·미실행 41을 별도 assault 객체와 화면에 명시합니다. ‘0/41 통과’처럼 혼동하는 표시도 제거했습니다. 기존 학생 규칙·자료 API·개인 복구/감사 이력은 변경하지 않습니다.
+- npm run test:bundle은 실측 결과마다 같은 attackId의 GET 기록이 정확히 한 개 있는지 검사합니다. npm run test:12는 대표 수치와 JSON 일치, 미실행/오류 제외, 41종 별도 집계를 검사합니다. 로컬 검증과 실제 심판 재판정은 구분합니다.

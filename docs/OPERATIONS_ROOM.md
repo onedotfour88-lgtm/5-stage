@@ -60,3 +60,11 @@ GET /api/operations-public는 로그인·자료 ID·본문·쿠키를 받지 않
 로그인 전 화면에는 이 공개 기록이 나타납니다. 개인 로그인 후 확인표는 이전 인증된 /api/operations 계약을 따릅니다. 공개 기록과 개인 기록은 각각 하나의 응답 JSON에서 수치를 표시합니다. 60초 캐시의 원래 요청 ID/시각을 유지하고 새 요청처럼 시각을 바꾸지 않습니다. 실제 41종/회수 기록은 미실행입니다.
 
 제출 runner인 src/attack-check.mjs는 모든 import 없이 실행됩니다. 독립 VM 검사 npm run test:bundle은 Node process/Buffer를 제공하지 않고 모든 로컬/Node/npm import를 runner_import_failed로 거부합니다. 제출 점검은 공개 실측 API GET 한 번만 보내며 10개 점검 기록을 만듭니다. 직접 확인 4개(스냅샷/정상 화면/빈 데이터/무로그인 거부)와 미실행 6개를 구분합니다. 외부 네트워크 실패와 미실측에는 not_run을 남깁니다. 이 시험을 심판 재판정으로 부르지 않습니다.
+
+## 실행 기록과 미실행 집계의 최신 수정
+
+이전 ‘GET 한 번의 하위 결과를 네 점검으로 제출’ 방식은 심판 기록 대조에 맞지 않아 폐기했습니다. 제출 runner는 operations-snapshot-api → /api/operations-public, s01-screen → /, s02-public-data → /data.json, s03-no-login → /api/memos/1의 GET을 각각 직접 보냅니다. 각 요청에 같은 attackId 추적 메타데이터와 헤더를 넣습니다. 응답이 직접 돌아온 요청만 observed에 기록합니다. 중계 API의 하위 요청을 제출 runner가 보낸 요청으로 취급하지 않습니다.
+
+대표 확인표 counts.normalAllowed/counts.forbiddenBlocked는 실제 measured인 행만 분류합니다. 기대 일치 matched 전체를 막음으로 세지 않습니다. 미실행 및 오류 행은 제외합니다. 공식 assault 집계는 현재 total=41, executed=0, blocked=0, allowed=0, notRun=41로 별도 표시합니다. 운영 41종 기록이 아직 없으므로 대표 GET 확인을 더해 이 값을 높이지 않습니다. 화면과 가린 API JSON은 같은 각 객체의 값을 사용합니다.
+
+검사한 커밋은 git rev-parse HEAD 및 API commit으로 확인합니다. 설치·실행·중지·검증 사본 복구와 제공 ALEPH SDP 엔진의 출처는 위 실행 안내를 따릅니다. 이 수정은 학생 판정·탐지·기기 승인 규칙과 원래 자료 접근/복구 권한을 변경하지 않습니다.

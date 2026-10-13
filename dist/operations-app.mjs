@@ -19,8 +19,8 @@ function render(data){
  $('detection').textContent='미실행 · 운영 사건 조회 계약 없음. 회수 제안을 회수 완료로 세지 않습니다.';
  $('revocation').textContent='실제 회수: 미실행 · 완료 시각/경과 시간 미확인'+(data.revocation.reportedDeviceStatus?' · 기기 상태 API: '+data.revocation.reportedDeviceStatus:'');
  $('recovery').textContent=data.recovery.version?'서버가 확인한 버전: '+data.recovery.version:'미실행 · 성공한 복구 응답 미조회';
- $('counts').textContent=`실측 ${data.counts.measured}  · 서로 다른 요청 ${data.counts.uniqueRequests} · 기대 일치 ${data.counts.matched} · 불일치 ${data.counts.mismatched} · 미실행 ${data.counts.unrun} · 요청 오류 ${data.counts.errors}`;
- $('assault').textContent='41종 총공세: 미실행 · 완료 수 미확인 (0/41 통과로도 단정하지 않음)';
+ $('counts').textContent=`대표 확인표: 실측 ${data.counts.measured} · 정상 허용 ${data.counts.normalAllowed} · 금지 거부 ${data.counts.forbiddenBlocked} · 기대 일치 ${data.counts.matched} · 미실행 ${data.counts.unrun} · 요청 오류 ${data.counts.errors}`;
+ $('assault').textContent=`41종 총공세: 실행 ${data.assault.executed} · 막음 ${data.assault.blocked} · 미실행 ${data.assault.notRun} · 심판 최종 결과 미연결`;
  $('results').replaceChildren();for(const row of data.rows){const tr=document.createElement('tr');
  for(const [i,value]of [row.stage,row.kind==='normal'?'정상':'금지',row.label,row.expected,row.actual??'미실행',row.source??'—',row.requestId?(row.requestId+' ('+row.requestIdSource+')'):'—',row.checkedAt??'—'].entries()){
  const td=document.createElement('td');td.textContent=String(value);if(i===6)td.className='id';tr.append(td);}$('results').append(tr);}
