@@ -10,7 +10,10 @@
 `subjectId`는 엔진이 확인한 가명 ID입니다. Supabase 사용자 번호와 직접 비교하지 않습니다.
 서버 관리 정책 `ALEPH_RESOURCE_POLICY_JSON`의 자원별 소유 가명 ID, 반·프로젝트,
 허용 기기 ID 및 강사 명단과 비교합니다. 요청 본문의 역할/정책은 읽지 않습니다.
-기본 `resource-policy.json`은 `class_fixture/project_fixture`의 가상 시험 전용입니다.
+`resource-policy.json`은 `class_fixture/project_fixture`의 가상 정책 형식 예시입니다.
+판정기는 동일한 시험 정책을 파일 내부에 담아 외부 import·파일 읽기 없이 실행됩니다.
+파일 시스템 및 Node process가 없는 격리 환경도 시험합니다. 명시적 서버 환경 정책은
+해당 환경변수가 제공된 Node 실행 환경에서만 적용되며, 격리 환경에서 제공됐다고 가정하지 않습니다.
 시험용 ID 목록을 운영 요청의 필수 조건으로 사용하지 않습니다. 등록된 구역은 정책대로
 검사하고, 소유자 연결을 받지 않은 정상 메모 경로는 최종 API의 실제 소유자 검사를 받도록
 전달합니다. 이것은 자료 본문을 허용하는 최종 결정이 아닙니다.

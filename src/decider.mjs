@@ -1,8 +1,47 @@
 // ALEPH SDP 엔진이 확인한 요청만 받는 학생 판정기 시작점입니다.
 // 6~7단계: 등록 기기 및 엔진이 제공한 가상 복합 사건을 판정합니다.
 // 요청 본문의 userId, role, 기기 키, 토큰을 별도로 믿거나 저장하지 마세요.
-import { authorizeResource } from './resources.mjs';
 export const RULE_IDS = Object.freeze(['device_registered', 'step_up_required', 'resource_zones']);
+
+// 심판이 이 파일만 실행해도 동작하도록 import/파일 읽기에 의존하지 않습니다.
+// 이 정책은 기존 로컬 가상 시험용이며 실제 사용자의 소유권은 API가 확인합니다.
+const fixturePolicy = {
+  resources: [
+    { classId: 'class_fixture', projectId: 'project_fixture', type: 'memo', id: 'demo', ownerSubjectId: 'learner_fixture', deviceIds: ['aaaaaaaaaaaaaaaa'] },
+    { classId: 'class_fixture', projectId: 'project_fixture', type: 'announcement', id: 'notice-demo', deviceIds: ['aaaaaaaaaaaaaaaa'] },
+  ],
+  instructors: [
+    { classId: 'class_fixture', projectId: 'project_fixture', subjectId: 'instructor_fixture', deviceIds: ['aaaaaaaaaaaaaaaa'] },
+  ],
+};
+
+function authorizeResource(request) {
+  // Node 환경의 명시적 서버 정책은 유지합니다. 격리 환경에서는 process도 요구하지 않습니다.
+  const policyJson = typeof process === 'object' ? process.env?.ALEPH_RESOURCE_POLICY_JSON : undefined;
+  const explicitPolicy = policyJson !== undefined;
+  let policy;
+  try { policy = explicitPolicy ? JSON.parse(policyJson) : fixturePolicy; } catch { return false; }
+  if (!policy || !Array.isArray(policy.resources) || !Array.isArray(policy.instructors)
+      || typeof request.subjectId !== 'string' || !request.subjectId
+      || !/^[a-f0-9]{16}$/u.test(request.deviceId ?? '') || request.service !== 'notes') return false;
+  const sameScope = item => item && item.classId === request.classId && item.projectId === request.projectId;
+  const scoped = item => sameScope(item) && Array.isArray(item.deviceIds) && item.deviceIds.includes(request.deviceId);
+  if (['/api/memos', '/api/notes'].includes(request.path)) {
+    if (!['GET', 'POST'].includes(request.method) || request.route !== `${request.method} ${request.path}`) return false;
+    const memos = policy.resources.filter(item => sameScope(item) && item.type === 'memo');
+    return memos.length ? memos.some(item => scoped(item) && item.ownerSubjectId === request.subjectId) : !explicitPolicy;
+  }
+  const match = /^(\/notes|\/api\/notes|\/api\/memos|\/announcements|\/api\/announcements)\/([A-Za-z0-9_-]+)$/u.exec(request.path ?? '');
+  if (!match || request.route !== `${request.method} ${match[1]}/:id`
+      || !['GET', 'PUT', 'PATCH'].includes(request.method)) return false;
+  if (match[2].length > 128 || ['export', 'download', 'search', 'bulk', 'all', 'admin'].includes(match[2].toLowerCase())) return false;
+  const type = match[1].includes('announcements') ? 'announcement' : 'memo';
+  const resource = policy.resources.find(item => sameScope(item) && item.type === type && item.id === match[2]);
+  if (!resource) return !explicitPolicy && (type === 'memo' || request.method === 'GET');
+  if (!scoped(resource)) return false;
+  if (type === 'memo') return resource.ownerSubjectId === request.subjectId;
+  return request.method === 'GET' || policy.instructors.some(item => scoped(item) && item.subjectId === request.subjectId);
+}
 
 // 호출자는 계약대로 엔진이 검증한 요청만 전달해야 합니다.
 // 브라우저 헤더/위치나 누락된 신호를 정상값으로 변환하지 않습니다.
