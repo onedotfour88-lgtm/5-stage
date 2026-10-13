@@ -102,7 +102,7 @@ test('API parser only accepts numeric/UUID resource IDs; no feature query, ambig
   }
 });
 
-function database(userId = 'user-a', instructor = false) {
+function database(userId = 'user-a', instructor = false, ignoreFilters = false) {
   const rows = {
     memos: [ { id: '1', owner_id: 'user-a', title: 'fixture', body: 'fixture' },
       { id: '2', owner_id: 'user-b', title: 'fixture', body: 'fixture' } ],
@@ -115,7 +115,7 @@ function database(userId = 'user-a', instructor = false) {
       const filters = []; let changes = null; let insertion = null;
       const result = single => {
         calls.push({ table, filters: [...filters], changes, insertion });
-        let data = rows[table].filter(row => filters.every(([key, value]) => row[key] === value));
+        let data = rows[table].filter(row => ignoreFilters || filters.every(([key, value]) => row[key] === value));
         if (changes) for (const row of data) Object.assign(row, changes);
         if (insertion) { const row = { id: '3', ...insertion }; rows[table].push(row); data = [row]; }
         return { data: single ? data[0] ?? null : data.map(row => ({ ...row })), error: null };
@@ -134,6 +134,62 @@ async function api(db, { type = 'memo', url = '/api/notes/1', method = 'GET', bo
   await createResourceHandler(type, { getClient: async () => db })({ url, method, body, headers, query }, response);
   return response;
 }
+
+test('response boundary rechecks owners and requested IDs even when the database ignores filters', async () => {
+  for (const url of ['/api/memos', '/api/notes']) {
+    const db = database('user-a', false, true);
+    db.rows.memos.push({ id: '3', title: 'synthetic', body: 'synthetic' });
+    const list = await api(db, { url });
+    assert.equal(list.code, 200);
+    assert.deepEqual(list.body.map(row => row.id), ['1']);
+    assert.deepEqual(Object.keys(list.body[0]).sort(), ['body', 'id', 'resourceId', 'title']);
+  }
+  for (const url of ['/api/notes/2', '/api/memos/2', '/api/memos?id=2', '/api/notes?id=2']) {
+    for (const method of ['GET', 'PUT', 'PATCH']) {
+      const db = database('user-a', false, true);
+      // The returned first row has the right owner but the wrong requested ID.
+      const result = await api(db, { url, method, body: { title: 'synthetic', body: 'synthetic' } });
+      assert.equal(result.code, 404);
+      assert.deepEqual(result.body, { error: 'resource_not_found' });
+      assert.ok(db.calls.every(call => !call.changes));
+    }
+  }
+});
+
+test('a foreign instructor row cannot grant notice write access when the database ignores filters', async () => {
+  for (const method of ['POST', 'PUT', 'PATCH']) {
+    const db = database('user-a', false, true);
+    db.rows.resource_roles = [{ user_id: 'teacher', role: 'instructor' }];
+    const result = await api(db, { type: 'announcement', method,
+      url: method === 'POST' ? '/api/announcements' : '/api/announcements/1',
+      body: { title: 'synthetic', body: 'synthetic', role: 'instructor' } });
+    assert.equal(result.code, 403);
+    assert.deepEqual(result.body, { error: 'instructor_required' });
+    assert.ok(db.calls.every(call => !call.changes && !call.insertion));
+  }
+});
+
+test('update responses cannot expose a row with a different owner or requested ID', async () => {
+  for (const replacement of [{ owner_id: 'user-b' }, { id: '2' }]) {
+    const db = database();
+    const from = db.from.bind(db);
+    db.from = table => {
+      const query = from(table);
+      const update = query.update;
+      const maybeSingle = query.maybeSingle;
+      let isUpdate = false;
+      query.update = value => { isUpdate = true; return update(value); };
+      query.maybeSingle = async () => {
+        const result = await maybeSingle();
+        return isUpdate ? { ...result, data: { ...result.data, ...replacement } } : result;
+      };
+      return query;
+    };
+    const result = await api(db, { method: 'PUT', body: { title: 'synthetic', body: 'synthetic' } });
+    assert.equal(result.code, 404);
+    assert.deepEqual(result.body, { error: 'resource_not_found' });
+  }
+});
 
 test('direct API read and edit verify saved memo owner; list cannot cross owners', async () => {
   const a = database();
