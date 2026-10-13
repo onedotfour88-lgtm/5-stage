@@ -249,6 +249,63 @@ test('API rejects unauthenticated, invalid sessions and guessed feature paths', 
   assert.equal(created.code, 201); assert.equal(created.body.resourceId, 'memo:3');
 });
 
+test('직접 API: 본문의 역할·사용자·소유자 위조로 다른 메모에 접근할 수 없음', async () => {
+  for (const url of ['/api/notes/1', '/api/memos/1', '/api/notes?id=1', '/api/memos?id=1']) {
+    for (const method of ['GET', 'PUT', 'PATCH']) {
+      const db = database('user-b');
+      const before = structuredClone(db.rows.memos);
+      const result = await api(db, { url, method, body: {
+        title: 'synthetic', body: 'synthetic', role: 'instructor', userId: 'user-a', owner_id: 'user-a',
+      }, headers: { authorization: 'Bearer fixture', 'x-user-id': 'user-a', 'x-role': 'instructor' } });
+      assert.equal(result.code, 404);
+      assert.deepEqual(result.body, { error: 'resource_not_found' });
+      assert.deepEqual(db.rows.memos, before);
+      assert.ok(db.calls.every(call => !call.changes && !call.insertion));
+    }
+  }
+});
+
+test('직접 API: 인증 오류·잘못된 사용자 ID는 DB 자료 조회 전에 거부', async () => {
+  for (const authResult of [
+    { data: { user: { id: {} } }, error: null },
+    { data: { user: { id: ['user-a'] } }, error: null },
+    { data: { user: { id: '   ' } }, error: null },
+    { data: { user: { id: 'user-a' } }, error: { message: 'synthetic detail' } },
+  ]) {
+    const db = database();
+    db.auth.getUser = async () => authResult;
+    const result = await api(db);
+    assert.equal(result.code, 401);
+    assert.deepEqual(result.body, { error: 'invalid_login' });
+    assert.deepEqual(db.calls, []);
+  }
+});
+
+test('직접 API: 저장된 소유자 누락·권한 조회 오류는 자료·수정 권한으로 인정하지 않음', async () => {
+  for (const method of ['GET', 'PUT', 'PATCH']) {
+    const db = database('user-a', false, true);
+    delete db.rows.memos[0].owner_id;
+    const result = await api(db, { method, body: { title: 'synthetic', body: 'synthetic' } });
+    assert.equal(result.code, 404);
+    assert.deepEqual(result.body, { error: 'resource_not_found' });
+    assert.ok(db.calls.every(call => !call.changes));
+  }
+  const db = database('teacher', true);
+  const from = db.from.bind(db);
+  db.from = table => {
+    const query = from(table);
+    if (table === 'resource_roles') query.maybeSingle = async () => ({
+      data: { user_id: 'teacher', role: 'instructor' }, error: { message: 'synthetic detail' },
+    });
+    return query;
+  };
+  const result = await api(db, { type: 'announcement', url: '/api/announcements/1', method: 'PUT',
+    body: { title: 'synthetic', body: 'synthetic', role: 'instructor' } });
+  assert.equal(result.code, 403);
+  assert.deepEqual(result.body, { error: 'instructor_required' });
+  assert.ok(db.calls.every(call => !call.changes && !call.insertion));
+});
+
 test('matching single-path ID query fingerprints agree with Node SHA-256 across block boundaries', async () => {
   for (const length of [1,36,52,53,61,62,116,117,128]) {
     const id = 'x'.repeat(length);

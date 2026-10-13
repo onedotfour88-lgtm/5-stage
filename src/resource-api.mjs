@@ -32,7 +32,7 @@ export function createResourceHandler(type, { getClient = serverClient } = {}) {
     try {
       const { data: auth, error: authError } = await db.auth.getUser(match[1]);
       const user = auth?.user;
-      if (authError || !user?.id) return fail(401, 'invalid_login');
+      if (authError || typeof user?.id !== 'string' || !user.id.trim()) return fail(401, 'invalid_login');
       if (type === 'announcement' && req.method !== 'GET') {
         const { data: role, error } = await db.from('resource_roles')
           .select('user_id,role').eq('user_id', user.id).maybeSingle();
