@@ -1,6 +1,7 @@
 import { parseApiResource, resourceId, validDataId } from './resources.mjs';
+import { readDeviceStatus } from './device-approval.mjs';
 
-async function serverClient() {
+export async function serverClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error('server_not_configured');
   const { createClient } = await import('@supabase/supabase-js');
@@ -10,7 +11,7 @@ async function serverClient() {
 }
 
 // 의존성 주입은 서버 테스트용이며 요청 본문의 role/owner는 사용하지 않습니다.
-export function createResourceHandler(type, { getClient = serverClient } = {}) {
+export function createResourceHandler(type, { getClient = serverClient, readStatus = readDeviceStatus } = {}) {
   return async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -33,6 +34,10 @@ export function createResourceHandler(type, { getClient = serverClient } = {}) {
       const { data: auth, error: authError } = await db.auth.getUser(match[1]);
       const user = auth?.user;
       if (authError || typeof user?.id !== 'string' || !user.id.trim()) return fail(401, 'invalid_login');
+      let device;
+      try { device = await readStatus(req, user.id); }
+      catch { return fail(503, 'approval_service_unavailable'); }
+      if (device?.status !== 'approved' || device.deviceRegistered !== true) return fail(403, 'device_not_registered');
       if (type === 'announcement' && req.method !== 'GET') {
         const { data: role, error } = await db.from('resource_roles')
           .select('user_id,role').eq('user_id', user.id).maybeSingle();

@@ -127,7 +127,7 @@ function database(userId = 'user-a', instructor = false, ignoreFilters = false) 
 async function api(db, { type = 'memo', url = '/api/notes/1', method = 'GET', body, headers = { authorization: 'Bearer test-a' }, query } = {}) {
   const response = { headers: {}, setHeader(key, value) { this.headers[key] = value; },
     status(value) { this.code = value; return this; }, json(value) { this.body = value; return this; }, end() {} };
-  await createResourceHandler(type, { getClient: async () => db })({ url, method, body, headers, query }, response);
+  await createResourceHandler(type, { readStatus: async () => ({ status: 'approved', deviceRegistered: true }), getClient: async () => db })({ url, method, body, headers, query }, response);
   return response;
 }
 

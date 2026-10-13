@@ -36,7 +36,7 @@ async function runFlow(actor, method, path, overrides = {}) {
   };
   const response = { headers: {}, setHeader(key, value) { this.headers[key] = value; },
     status(code) { this.code = code; return this; }, json(value) { this.body = value; return this; }, end() {} };
-  await createResourceHandler('memo', { getClient: async () => { apiCalls++; return db; } })({
+  await createResourceHandler('memo', { readStatus: async () => ({ status: 'approved', deviceRegistered: true }), getClient: async () => { apiCalls++; return db; } })({
     method, url: path + (query ? `?${query}` : ''),
     headers: { authorization: 'Bearer fixture' }, body: { title: 'synthetic', body: 'synthetic' },
   }, response);

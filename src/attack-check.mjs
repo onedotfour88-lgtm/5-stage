@@ -5,6 +5,7 @@ import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
 import { detect, normalizeDetectionEvents } from './detect.mjs';
 import { runRecoveryCheck } from '../scripts/fixture-10.mjs';
+import { createResourceHandler } from './resource-api.mjs';
 
 /**
  * 로컬 파일 및 6~8단계 가상 판정 요청 자기 점검 (심판 판정 아님)
@@ -160,6 +161,25 @@ export async function runAttackChecks(config = {}) {
   checks.push({ attackId: 'live-resource-zones',
     expected: '실제 로그인과 API의 저장된 소유자·강사 권한으로 직접 요청 구역 검증',
     observed: '미실행: 공지·강사 테이블 SQL 적용 및 실제 A/B 로그인 운영 API 시험 필요' });
+  if (config.step >= 11) {
+    // Keep the 20-item submission limit. Full prior checks remain in stage tests.
+    for (const id of ['check-sensitive-keyword-leak', 'check-aleph-json-exists']) {
+      const index = checks.findIndex(check => check.attackId === id);
+      if (index !== -1) checks.splice(index, 1);
+    }
+    const manifest = JSON.parse(await fs.readFile(path.resolve('public/manifest.webmanifest'), 'utf8'));
+    const app = await fs.readFile(path.resolve('public/app.mjs'), 'utf8');
+    checks.push({ attackId: 'access-app-manifest', expected: '설치 설정 및 토큰 저장 비활성화',
+      observed: manifest.start_url === '/' && manifest.display === 'standalone' && app.includes('persistSession: false')
+        ? '로컬 manifest 및 토큰 저장 비활성화 확인' : '설치 설정 확인 실패' });
+    const response = { setHeader() {}, status(code) { this.code = code; return this; }, json() {} };
+    await createResourceHandler('memo', {
+      getClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: 'synthetic-user' } } }) } }),
+      readStatus: async () => ({ status: 'pending', deviceRegistered: false }),
+    })({ method: 'GET', url: '/api/memos/1', headers: { authorization: 'Bearer fixture' } }, response);
+    checks.push({ attackId: 'access-app-unapproved-api', expected: '가상 승인 대기 기기의 직접 API 자료 요청 거부',
+      observed: `가상 승인 대기 요청 HTTP ${response.code}; 실제 승인 엔진 연결은 미실행` });
+  }
   return checks;
 }
 
