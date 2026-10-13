@@ -20,16 +20,16 @@ async function loadRunner(snapshot,{networkError=false}={}){
  await module.link(()=>{throw new Error('runner_import_failed');});await module.evaluate();
  return{checks:await module.namespace.runAttackChecks({publicAppUrl:'https://5-stage.vercel.app/'}),requests};
 }
-test('모든 실측 attackId는 같은 ID의 직접 GET 기록이 있어야 한다',async()=>{
+test('추적 연결이 없는 제출 점검은 요청 없이 모두 not_run으로 남긴다',async()=>{
  const handler=createPublicOperationsHandler({fetcher,emit:()=>{}});const response=res();await handler({method:'GET'},response);
  const {checks,requests}=await loadRunner(response.body);
- assert.equal(checks.length,10);assert.equal(requests.length,4);
+ assert.equal(checks.length,10);assert.equal(requests.length,0);
  for(const check of checks){
   const trace=requests.filter(row=>row.attackId===check.attackId);
   assert.equal(trace.length,check.observed==='not_run'?0:1);
   if(trace.length){assert.equal(trace[0].method,'GET');assert.match(check.observed,/requestId=/);assert.match(check.observed,/checkedAt=/);}
  }
- assert.equal(new URL(requests.find(r=>r.attackId==='s03-no-login').url).pathname,'/api/memos/1');
+ assert.ok(checks.every(row=>row.observed==='not_run'));
  assert.ok(checks.every(row=>row.observed.length<=300));assert.equal(checks.find(row=>row.attackId==='assault-41').observed,'not_run');
 });
 test('공개 응답은 정상/금지 실측만 보관하고 41종에는 합산하지 않는다',async()=>{
@@ -47,6 +47,6 @@ test('수신 실패는 not_run이며 미실행 41종을 실제 막음으로 바�
  const empty=buildSnapshot();empty.snapshotId=UUID;
  const failed=await loadRunner(empty,{networkError:true});assert.ok(failed.checks.every(row=>row.observed==='not_run'));
  empty.assault.blocked=41;
- const invalid=await loadRunner(empty);assert.match(invalid.checks[0].observed,/기록 수치 검증 실패/);
+ const invalid=await loadRunner(empty);assert.equal(invalid.checks[0].observed,'not_run');
  assert.equal(invalid.checks.find(row=>row.attackId==='assault-41').observed,'not_run');
 });
