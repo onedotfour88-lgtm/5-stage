@@ -15,7 +15,12 @@ export async function collectChecks(config={},fetcher=fetch){
       observed:'not_run',result:'not_run',requestId:null,requestKey:null,checkedAt:null,source:null};
     if(check.path){
       // Correlation metadata only; never an authentication assertion.
-      const requestKey=typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${check.attackId}-${Math.random().toString(36).slice(2)}`;
+      // Sandbox may omit Web Crypto. The fallback still has UUID v4 syntax.
+      // This is a trace identifier, never a credential or security token.
+      const requestKey=typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():
+        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+          const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3)|8).toString(16);
+        });
       try{
         const response=await fetcher('https://5-stage.vercel.app'+check.path,{method:'GET',redirect:'error',cache:'no-store',
           alephEvidence:{attackId:check.attackId,requestKey},attackId:check.attackId,

@@ -13,6 +13,7 @@ test('standalone runner sends one GET per measured attackId with unique evidence
  const checks=await module.namespace.runAttackChecks({publicAppUrl:'https://5-stage.vercel.app/'});
  assert.equal(checks.length,6);assert.equal(requests.length,4);
  assert.equal(new Set(requests.map(r=>r.alephEvidence.requestKey)).size,4);
+ for(const request of requests)assert.match(request.alephEvidence.requestKey,/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
  for(const row of checks){const trace=requests.filter(r=>r.alephEvidence.attackId===row.attackId);assert.equal(trace.length,row.observed==='not_run'?0:1);}
  assert.ok(requests.every(r=>r.method==='GET'));
  assert.equal(checks[0].observed,'HTTP 200');assert.equal(checks[1].observed,'HTTP 200; jsonReady=true');
