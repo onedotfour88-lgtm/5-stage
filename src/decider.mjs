@@ -35,12 +35,13 @@ function authorizeResource(request) {
       || !['GET', 'PUT', 'PATCH'].includes(request.method)) return false;
   if (match[2].length > 128 || ['export', 'download', 'search', 'bulk', 'all', 'admin'].includes(match[2].toLowerCase())) return false;
   const type = match[1].includes('announcements') ? 'announcement' : 'memo';
+  if (type === 'announcement' && request.method !== 'GET') return false;
   const resource = policy.resources.find(item => sameScope(item) && item.type === type && item.id === match[2]);
   // 경로 형식만으로 소유권을 추정하지 않습니다. 등록된 자원만 허용합니다.
   if (!resource) return false;
   if (!scoped(resource)) return false;
   if (type === 'memo') return resource.ownerSubjectId === request.subjectId;
-  return request.method === 'GET' || policy.instructors.some(item => scoped(item) && item.subjectId === request.subjectId);
+  return request.method === 'GET';
 }
 
 // 호출자는 계약대로 엔진이 검증한 요청만 전달해야 합니다.

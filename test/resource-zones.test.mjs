@@ -9,7 +9,7 @@ import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
 function engine(overrides = {}) { return { ...fixtureRequests().normal, ...overrides }; }
 const notice = { path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' };
 
-test('A own memo read/write allowed; B and student notice writes denied; instructor allowed', async () => {
+test('A own memo read/write allowed; B denied; announcements read-only for all identities', async () => {
   for (const method of ['GET', 'PUT', 'PATCH']) {
     const r = await decide(engine({ method, route: `${method} /notes/:id` }));
     assert.equal(r.decision, 'allow');
@@ -18,7 +18,14 @@ test('A own memo read/write allowed; B and student notice writes denied; instruc
     const r = await decide(request);
     assert.equal(r.decision, 'deny'); assert.equal(r.reasonCode, 'resource_forbidden');
   }
-  assert.equal((await decide(engine({ ...notice, subjectId: 'instructor_fixture' }))).decision, 'allow');
+  for (const subjectId of ['learner_fixture', 'instructor_fixture', 'other_fixture']) {
+    for (const prefix of ['/announcements', '/api/announcements']) {
+      for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+        assert.equal((await decide(engine({ subjectId, path: `${prefix}/notice-demo`, method,
+          route: `${method} ${prefix}/:id`, stepUp: { verified: true, authAgeSeconds: 0 } }))).decision, 'deny');
+      }
+    }
+  }
   assert.equal((await decide(engine({ ...notice, method: 'GET', route: 'GET /announcements/:id' }))).decision, 'allow');
   for (const method of ['GET', 'POST']) {
     assert.equal((await decide(engine({ path: '/api/memos', route: `${method} /api/memos`, method }))).decision, 'allow');
@@ -134,12 +141,20 @@ test('direct reads through every legacy URL keep own access and reject another s
   }
 });
 
-test('request role cannot grant notice writes; stored instructor role can', async () => {
+test('announcement API denies writes even with stored instructor role; no DB write is attempted', async () => {
   const request = { type: 'announcement', url: '/api/announcements/1', method: 'PUT', body: { title: 'fixture', body: 'fixture', role: 'instructor' } };
-  const denied = await api(database(), request);
-  assert.equal(denied.code, 403); assert.equal(denied.body.error, 'instructor_required');
-  const allowed = await api(database('teacher', true), request);
-  assert.equal(allowed.code, 200); assert.equal(allowed.body.resourceId, 'announcement:1');
+  for (const user of ['user-a', 'user-b', 'teacher']) {
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+      const db = database(user, user === 'teacher');
+      const before = structuredClone(db.rows.announcements);
+      const denied = await api(db, { ...request, method,
+        url: method === 'POST' ? '/api/announcements' : request.url });
+      assert.equal(denied.code, method === 'DELETE' ? 405 : 403);
+      if (method !== 'DELETE') assert.equal(denied.body.error, 'announcement_read_only');
+      assert.deepEqual(db.rows.announcements, before);
+      assert.equal(db.calls.length, 0);
+    }
+  }
   assert.equal((await api(database(), { ...request, method: 'GET' })).code, 200);
 });
 

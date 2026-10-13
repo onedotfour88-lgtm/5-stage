@@ -15,6 +15,7 @@ test('decider source alone works without filesystem, imports or Node process glo
     { request: { ...normal, subjectId: 'other_fixture' }, expected: 'deny' },
     { request: { ...normal, deviceRegistered: false }, expected: 'deny' },
     { request: { ...normal, path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' }, expected: 'deny' },
+    { request: { ...normal, subjectId: 'instructor_fixture', path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' }, expected: 'deny' },
     { request: suspicious, expected: 'step_up' },
   ];
   const source = readFileSync(new URL('../src/decider.mjs', import.meta.url), 'utf8');

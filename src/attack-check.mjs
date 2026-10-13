@@ -103,7 +103,7 @@ export async function runAttackChecks(config = {}) {
     ['unknown-owner-denied-fixture', unknownResourceRequest(), 'deny · resource_forbidden'],
     ['other-owner-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'other_fixture' }, 'deny · resource_forbidden'],
     ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · resource_forbidden'],
-    ['instructor-notice-fixture', { ...normal, requestId: randomUUID(), subjectId: 'instructor_fixture', method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'allow · approved'],
+    ['instructor-notice-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'instructor_fixture', method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · resource_forbidden'],
   ]) {
     const response = await decide(request);
     checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
