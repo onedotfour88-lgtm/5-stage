@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
 import { detect, normalizeDetectionEvents } from './detect.mjs';
+import { runRecoveryCheck } from '../scripts/fixture-10.mjs';
 
 /**
  * 로컬 파일 및 6~8단계 가상 판정 요청 자기 점검 (심판 판정 아님)
@@ -109,6 +110,7 @@ export async function runAttackChecks(config = {}) {
       querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') }, 'deny · starter_not_ready'],
   ]) {
     if (config.step >= 9 && ['own-id-query-fixture', 'query-resource-selection-denied-fixture'].includes(attackId)) continue;
+    if (config.step >= 10 && ['unknown-source-fixture', 'missing-signals-fixture'].includes(attackId)) continue;
     const response = await decide(request);
     checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
       observed: `로컬 가상 요청: ${response.decision} · ${response.reasonCode}` });
@@ -122,6 +124,15 @@ export async function runAttackChecks(config = {}) {
     const result = detect(Array.from({ length: 121 }, () => event));
     checks.push({ attackId: 'detection-starter-burst', expected: '스타터 기준: 정상 observe / 121건 사용자 단위 burst_read 제안',
       observed: '정상 ' + detect(Array.from({ length: 30 }, () => event)).action + ' / 121건 ' + result.action + ' · ' + result.reasonCode });
+  }
+  if (config.step >= 10) {
+    const result = runRecoveryCheck();
+    checks.push({ attackId: 'recovery-test-policy', expected: '시험 정책 복원 후 A 허용/B의 A 거부 및 다른 서비스·감사 보존',
+      observed: result.ownAllowed && result.otherDenied && result.otherServicePreserved && result.auditPreserved
+        ? '가상 복구: A 허용/B의 A 거부 및 다른 서비스·감사 보존 확인' : '가상 정책 복구 실패' });
+    checks.push({ attackId: 'recovery-test-memo', expected: 'B 메모 한 건의 ID·소유자·내용 해시 및 다른 메모 보존',
+      observed: result.memoVerified && result.otherMemoPreserved && result.auditPreserved
+        ? '가상 복구: B 한 건 검증 및 다른 메모·감사 보존 확인' : '가상 메모 복구 실패' });
   }
   if (config.publicAppUrl === 'https://5-stage.vercel.app/') {
     let observed;
@@ -137,9 +148,12 @@ export async function runAttackChecks(config = {}) {
     checks.push({ attackId: 'public-login-screen',
       expected: '기존 배포 주소의 공개 로그인 화면 표시', observed });
   }
-  checks.push({ attackId: 'registered-device-browser',
+  if (config.step < 10) checks.push({ attackId: 'registered-device-browser',
     expected: '등록 기기에서 기존 자료실 화면과 본인 자료 읽기 성공',
     observed: '미실행: 등록 기기 및 로그인된 접속 세션 확인 필요' });
+  if (config.step >= 10) checks.push({ attackId: 'live-test-account-recovery',
+    expected: '실제 시험 계정 B의 비공개 사본에서 단건 POST 복구',
+    observed: '미실행: 시험 테이블 SQL·사전 승인 사본·시험 B 환경 설정 및 배포 필요' });
   checks.push({ attackId: 'live-reauthentication',
     expected: '엔진이 동일 주체의 새 로그인을 검증한 환경에서 확인 전 자료 차단 및 새 요청 허용',
     observed: '미실행: 추가 확인 요청 이후 동일 주체의 새 로그인 시각을 검증하는 실제 계약·엔진 세션 없음' });

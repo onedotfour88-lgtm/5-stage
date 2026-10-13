@@ -12,7 +12,9 @@
     "detect:test": "node scripts/detect-test.mjs",
     "fixture:7": "node scripts/fixture-7.mjs",
     "xdr:run": "node scripts/xdr-run.mjs",
-    "test:9": "node --test test/detection-input.test.mjs test/detection-rule.test.mjs"
+    "test:9": "node --test test/detection-input.test.mjs test/detection-rule.test.mjs",
+    "test:10": "node --test test/recovery.test.mjs",
+    "recovery:demo": "node scripts/recovery-demo.mjs"
   },
   "engines": {
     "node": ">=22"
