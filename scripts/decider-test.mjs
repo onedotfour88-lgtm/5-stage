@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixtureRequests } from './fixture-7.mjs';
@@ -44,6 +44,10 @@ export async function checkDecider({ decide, ruleIds }) {
     const announcement = { ...normal, path: '/announcements/notice-demo',
       method: 'PUT', route: 'PUT /announcements/:id' };
     checks.push(
+      { name: '다른 자료 선택 쿼리 거부', request: { ...normal, path: '/api/memos', route: 'GET /api/memos',
+        queryLength: 'id=other-owner-note'.length,
+        querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') },
+      decision: 'deny', reasonCode: 'resource_forbidden' },
       { name: '소유권 미확인 메모 읽기 거부', request: unknownResourceRequest(), decision: 'deny', reasonCode: 'resource_forbidden' },
       { name: 'A 자기 메모 수정', request: { ...normal, method: 'PUT', route: 'PUT /notes/:id' }, decision: 'allow' },
       { name: 'B의 A 메모 읽기 거부', request: { ...normal, subjectId: 'other_fixture' }, decision: 'deny', reasonCode: 'resource_forbidden' },

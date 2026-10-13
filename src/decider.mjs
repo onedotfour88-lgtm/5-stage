@@ -16,6 +16,10 @@ const fixturePolicy = {
 };
 
 function authorizeResource(request) {
+  // 쿼리 원문이 없으므로 선택된 자료의 소유권을 경로에서 확인할 수 없습니다.
+  // 빈 쿼리의 길이와 SHA-256이 모두 일치할 때만 경로 정책을 적용합니다.
+  if (request.queryLength !== 0
+      || request.querySha256 !== 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855') return false;
   // Node 환경의 명시적 서버 정책은 유지합니다. 격리 환경에서는 process도 요구하지 않습니다.
   const policyJson = typeof process === 'object' ? process.env?.ALEPH_RESOURCE_POLICY_JSON : undefined;
   let policy;

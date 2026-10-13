@@ -9,6 +9,7 @@ test('decider source alone works without filesystem, imports or Node process glo
   const { normal, suspicious } = fixtureRequests();
   const cases = [
     { request: normal, expected: 'allow' },
+    { request: { ...normal, queryLength: 19, querySha256: 'a'.repeat(64) }, expected: 'deny' },
     { request: unknownResourceRequest(), expected: 'deny' },
     { request: { ...normal, path: '/notes/other-owner-note' }, expected: 'deny' },
     { request: { ...normal, classId: 'other_class', path: '/api/memos', route: 'GET /api/memos' }, expected: 'deny' },

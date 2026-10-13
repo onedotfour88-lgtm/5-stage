@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { decide } from '../src/decider.mjs';
 import { parseApiResource, resourceId } from '../src/resources.mjs';
@@ -44,6 +45,24 @@ test('unknown exact route, device, scope, method and encoded/feature paths denie
   assert.equal((await decide(engine({ deviceRegistered: false }))).reasonCode, 'device_not_registered');
   const { suspicious } = fixtureRequests();
   assert.equal((await decide(suspicious)).decision, 'step_up');
+});
+
+test('resource selection query cannot inherit permission from a collection or another resource path', async () => {
+  for (const path of ['/notes/demo', '/api/notes/demo', '/api/memos/demo', '/api/memos', '/api/notes']) {
+    const route = `GET ${path.endsWith('/demo') ? path.slice(0, -4) + ':id' : path}`;
+    const base = engine({ path, route });
+    assert.equal((await decide(base)).decision, 'allow');
+    for (const query of ['id=other-owner-note', 'id=demo', 'action=export']) {
+      const result = await decide({ ...base, queryLength: query.length,
+        querySha256: createHash('sha256').update(query).digest('hex') });
+      assert.equal(result.decision, 'deny');
+      assert.equal(result.reasonCode, 'resource_forbidden');
+    }
+    for (const overrides of [{ queryLength: undefined }, { queryLength: '0' },
+      { queryLength: -1 }, { querySha256: undefined }, { querySha256: '0'.repeat(64) }]) {
+      assert.equal((await decide({ ...base, ...overrides })).decision, 'deny');
+    }
+  }
 });
 
 test('S08_OTHER_ZONE_ALLOWED: unknown ownership is denied for reads, writes and lists', async () => {

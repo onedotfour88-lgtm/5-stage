@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
 import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
@@ -103,7 +103,9 @@ export async function runAttackChecks(config = {}) {
     ['unknown-owner-denied-fixture', unknownResourceRequest(), 'deny · resource_forbidden'],
     ['other-owner-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'other_fixture' }, 'deny · resource_forbidden'],
     ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · resource_forbidden'],
-    ['instructor-notice-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'instructor_fixture', method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · resource_forbidden'],
+    ['query-resource-selection-denied-fixture', { ...normal, requestId: randomUUID(), path: '/api/memos', route: 'GET /api/memos',
+      queryLength: 'id=other-owner-note'.length,
+      querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') }, 'deny · resource_forbidden'],
   ]) {
     const response = await decide(request);
     checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
