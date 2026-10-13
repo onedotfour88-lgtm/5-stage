@@ -101,11 +101,11 @@ export async function runAttackChecks(config = {}) {
       'step_up · step_up_required'],
     ['own-id-query-fixture', { ...normal, path: '/api/memos', route: 'GET /api/memos', queryLength: 7,
       querySha256: createHash('sha256').update('id=demo').digest('hex') }, 'allow · approved'],
-    ['other-owner-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'other_fixture' }, 'deny · resource_forbidden'],
-    ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · resource_forbidden'],
+    ['other-owner-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'other_fixture' }, 'deny · starter_not_ready'],
+    ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · starter_not_ready'],
     ['query-resource-selection-denied-fixture', { ...normal, requestId: randomUUID(), path: '/api/memos', route: 'GET /api/memos',
       queryLength: 'id=other-owner-note'.length,
-      querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') }, 'deny · resource_forbidden'],
+      querySha256: createHash('sha256').update('id=other-owner-note').digest('hex') }, 'deny · starter_not_ready'],
   ]) {
     const response = await decide(request);
     checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,

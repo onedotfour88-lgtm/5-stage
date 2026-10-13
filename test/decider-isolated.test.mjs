@@ -5,6 +5,20 @@ import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
 import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
+import { decide, RULE_IDS } from '../src/decider.mjs';
+import { checkDecider } from '../scripts/decider-test.mjs';
+
+test('practice validation rejects a syntactically valid but unconfirmed reason code', async () => {
+  const results = await checkDecider({ ruleIds: RULE_IDS, decide: async request => {
+    const result = await decide(request);
+    return result.decision === 'deny' && result.ruleIds.includes('resource_zones')
+      ? { ...result, reasonCode: 'unregistered_resource_reason' } : result;
+  } });
+  assert.ok(results.some(result => !result.passed));
+  assert.ok(results.filter(result => result.decision === 'allow').every(result => result.passed));
+  assert.ok(results.filter(result => result.reasonCode === 'unregistered_resource_reason')
+    .every(result => !result.passed));
+});
 
 test('decider source alone works without filesystem, imports or Node process globals', () => {
   const { normal, suspicious } = fixtureRequests();
@@ -42,6 +56,8 @@ test('decider source alone works without filesystem, imports or Node process glo
     assert.equal(result.decision, cases[index].expected);
     assert.equal(result.requestId, cases[index].request.requestId);
     assert.equal(result.schema, 'aleph.decision.v1');
+    assert.ok(['approved', 'starter_not_ready', 'device_not_registered', 'step_up_required']
+      .includes(result.reasonCode));
     assert.deepEqual(Object.keys(result).sort(), ['decision', 'reasonCode', 'requestId', 'ruleIds', 'schema']);
   }
 });

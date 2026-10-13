@@ -17,7 +17,7 @@ test('own memo allowed; other owner denied; only server-registered instructors m
   }
   for (const request of [engine({ subjectId: 'other_fixture' }), engine(notice)]) {
     const r = await decide(request);
-    assert.equal(r.decision, 'deny'); assert.equal(r.reasonCode, 'resource_forbidden');
+    assert.equal(r.decision, 'deny'); assert.equal(r.reasonCode, 'starter_not_ready');
   }
   for (const subjectId of ['learner_fixture', 'instructor_fixture', 'other_fixture']) {
     for (const prefix of ['/announcements', '/api/announcements']) {
@@ -57,7 +57,7 @@ test('resource selection query cannot inherit permission from a collection or an
       const result = await decide({ ...base, queryLength: query.length,
         querySha256: createHash('sha256').update(query).digest('hex') });
       assert.equal(result.decision, query === 'id=demo' ? 'allow' : 'deny');
-      assert.equal(result.reasonCode, query === 'id=demo' ? 'approved' : 'resource_forbidden');
+      assert.equal(result.reasonCode, query === 'id=demo' ? 'approved' : 'starter_not_ready');
       if (query === 'id=demo') {
         assert.equal((await decide({ ...base, subjectId: 'other_fixture', queryLength: query.length,
           querySha256: createHash('sha256').update(query).digest('hex') })).decision, 'deny');

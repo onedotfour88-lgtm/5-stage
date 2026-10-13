@@ -133,7 +133,8 @@ export async function decide(request) {
     decision, reasonCode, ruleIds,
   });
   if (!registered) return response('deny', 'device_not_registered', [RULE_IDS[0]]);
-  if (!authorizeResource(request)) return response('deny', 'resource_forbidden', ['device_registered', 'resource_zones']);
+  // 새 이유 코드 등록을 가정하지 않습니다. 구역 거부는 기존 스타터 거부 코드와 규칙 ID로 표시합니다.
+  if (!authorizeResource(request)) return response('deny', 'starter_not_ready', ['device_registered', 'resource_zones']);
 
   const source = classifySignals(request);
   if (source === 'unknown') return response('step_up', 'step_up_required', [...RULE_IDS]);
