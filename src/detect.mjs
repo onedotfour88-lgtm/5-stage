@@ -19,8 +19,22 @@ export function normalizeDetectionEvents(events) {
 }
 
 export function detect(events) {
-  normalizeDetectionEvents(events);
-  // 새 사용자 요청: 네트워크 변화+다량 조회가 모두 확인된 특정 기기에만 제안해야 합니다.
-  // 현 계약으로 이를 확인할 수 없어 observe를 유지합니다. 사용자 단위 회수로 대체하지 않습니다.
+  // 사용자 선택: 먼저 제공된 로컬 계약의 사용자 단위 폭주 조회 탐지를 구현합니다.
+  // 시간순으로 정렬하되 원본 사건 순서와 객체는 바꾸지 않습니다.
+  const reads = normalizeDetectionEvents(events)
+    .filter(event => event.method === 'GET')
+    .map(event => ({ at: Date.parse(event.at), subject: event.identity.sub }))
+    .sort((a, b) => a.at - b.at || (a.subject < b.subject ? -1 : a.subject > b.subject ? 1 : 0));
+  const windows = new Map();
+  for (const event of reads) {
+    const window = windows.get(event.subject) ?? { times: [], start: 0 };
+    window.times.push(event.at);
+    while (event.at - window.times[window.start] > 10 * 60 * 1000) window.start++;
+    windows.set(event.subject, window);
+    if (window.times.length - window.start > 120) {
+      // 탐지 제안 한 건만 반환합니다. 회수 API나 기기 권한은 변경하지 않습니다.
+      return { action: 'propose_revocation', reasonCode: 'burst_read', subject: event.subject };
+    }
+  }
   return { action: 'observe' };
 }

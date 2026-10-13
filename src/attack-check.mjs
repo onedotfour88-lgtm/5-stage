@@ -120,8 +120,8 @@ export async function runAttackChecks(config = {}) {
       observed: Object.keys(minimized[0]).sort().join(',') === 'at,identity,method'
         && Object.keys(minimized[0].identity).join(',') === 'sub' ? '세 항목만 추출 확인' : '입력 정리 실패' });
     const result = detect(Array.from({ length: 121 }, () => event));
-    checks.push({ attackId: 'detection-contract-unavailable', expected: '복합 조건 및 대상 기기 계약이 필요',
-      observed: '미구현: 제공 사건에 네트워크·기기가 없어 ' + result.action + ' 유지. 기존 121건 회수 제안 연습은 실패' });
+    checks.push({ attackId: 'detection-starter-burst', expected: '스타터 기준: 정상 observe / 121건 사용자 단위 burst_read 제안',
+      observed: '정상 ' + detect(Array.from({ length: 30 }, () => event)).action + ' / 121건 ' + result.action + ' · ' + result.reasonCode });
   }
   if (config.publicAppUrl === 'https://5-stage.vercel.app/') {
     let observed;

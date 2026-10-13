@@ -17,11 +17,13 @@ test('입력 정리: 계약의 세 항목만 새 객체에 남기고 추가 필�
   assert.deepEqual(Object.keys(safe).sort(), ['at', 'identity', 'method']);
 });
 
-test('정상·다량 조회 입력을 동일 형식으로 읽고 누락된 기기/네트워크를 지어내지 않음', () => {
+test('제공 계약의 조회량을 읽고 사용자 단위 제안에 기기/네트워크를 지어넣지 않음', () => {
   for (const count of [30, 120, 121, 200]) {
     const input = Array.from({ length: count }, event);
     assert.equal(normalizeDetectionEvents(input).length, count);
-    assert.deepEqual(detect(input), { action: 'observe' });
+    assert.deepEqual(detect(input), count > 120
+      ? { action: 'propose_revocation', reasonCode: 'burst_read', subject: 'learner_fixture' }
+      : { action: 'observe' });
   }
 });
 
