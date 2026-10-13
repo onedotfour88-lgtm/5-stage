@@ -73,6 +73,20 @@ export function buildSnapshot(inputRows=pendingRows(),commit=null,auditRows=[]){
       actual:`HTTP ${receipt.httpStatus}`+(receipt.recoveryVersion?' · '+receipt.recoveryVersion:' · '+receipt.reasonCode),
       requestId:receipt.requestId,requestIdSource:'server',checkedAt:receipt.checkedAt,commit:receipt.commit,matched:true});
   }
+  // A label alone is not evidence. Clear stale successes before rendering or counting.
+  for(const row of rows){
+    const hasReceipt=['live_http','student_server_api'].includes(row.source)
+      && UUID.test(row.requestId??'') && ['probe','server'].includes(row.requestIdSource)
+      && typeof row.checkedAt==='string' && Number.isFinite(Date.parse(row.checkedAt))
+      && /^HTTP [1-5][0-9]{2}(?: |$)/u.test(row.actual??'');
+    if(row.execution==='measured'&&!hasReceipt)row.execution='unrun';
+    if(row.execution==='unrun'||row.execution==='not_run'){
+      Object.assign(row,{execution:'unrun',observed:'not_run',actual:null,matched:null,
+        source:null,requestId:null,requestIdSource:null,checkedAt:null,commit:null});
+    }else if(row.execution==='error'){
+      row.observed='error';row.actual='요청 실패';row.matched=null;
+    }else row.observed=row.actual;
+  }
   // No official execution records are available. Never manufacture 41 receipt rows.
   const assaultChecks=[];
   const measured=rows.filter(row=>row.execution==='measured');

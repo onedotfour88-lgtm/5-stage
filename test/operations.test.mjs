@@ -106,7 +106,22 @@ test('미실행/오류 행은 matched나 가짜 HTTP 값이 있어도 막음·�
  Object.assign(rows.find(r=>r.caseId==='s01-screen'),{execution:'error',matched:true,actual:'HTTP 200'});
  const data=buildSnapshot(rows);
  assert.equal(data.counts.normalAllowed,0);assert.equal(data.counts.forbiddenBlocked,0);assert.equal(data.counts.measured,0);
+ const unrun=data.rows.find(row=>row.caseId==='s03-no-login');
+ assert.equal(unrun.actual,null);assert.equal(unrun.matched,null);assert.equal(unrun.observed,'not_run');
+ assert.equal(data.rows.find(row=>row.caseId==='s01-screen').actual,'요청 실패');
  assert.equal(data.assault.executed,0);assert.equal(data.assault.blocked,0);assert.equal(data.assault.allowed,0);assert.equal(data.assault.notRun,41);
+});
+
+test('measured 표시가 있어도 요청 ID·시각·출처가 없는 결과는 미실행이다',async()=>{
+ const {pendingRows}=await import('../src/operations-plan.mjs');
+ for(const missing of ['requestId','checkedAt','source','requestIdSource']){
+  const rows=pendingRows();
+  Object.assign(rows[2],{execution:'measured',source:'live_http',requestId:UUID,
+   requestIdSource:'server',checkedAt:'2026-10-13T00:00:00.000Z',actual:'HTTP 401',matched:true,[missing]:null});
+  const data=buildSnapshot(rows);
+  assert.equal(data.counts.forbiddenBlocked,0);assert.equal(data.counts.measured,0);
+  assert.equal(data.rows[2].observed,'not_run');assert.equal(data.rows[2].actual,null);
+ }
 });
 
 test('공식 실행 기록이 없으면 목록은 비어 있고 41종 전체가 미실행이다',()=>{
