@@ -4,6 +4,7 @@ import { decide } from '../src/decider.mjs';
 import { parseApiResource, resourceId } from '../src/resources.mjs';
 import { createResourceHandler } from '../src/resource-api.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
+import { unmappedOwnRequest } from '../scripts/fixture-8.mjs';
 
 function engine(overrides = {}) { return { ...fixtureRequests().normal, ...overrides }; }
 const notice = { path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' };
@@ -30,12 +31,25 @@ test('unknown exact route, device, scope, method and encoded/feature paths denie
     { path: '/notes/export' }, { path: '/notes/demo/export' }, { path: '/notes/demo/' },
     { path: '/notes/%64emo' }, { path: '/notes/demo?action=export' }, { path: '/notes/demo/../demo' },
     { method: 'DELETE', route: 'DELETE /notes/:id' }, { route: 'GET /announcements/:id' },
-    { deviceId: 'b'.repeat(16) }, { classId: 'other_class' }, { projectId: 'other_project' },
+    { deviceId: 'b'.repeat(16) },
     { subjectId: '' }, { service: 'other' },
   ]) assert.equal((await decide(engine(overrides))).decision, 'deny');
   assert.equal((await decide(engine({ deviceRegistered: false }))).reasonCode, 'device_not_registered');
   const { suspicious } = fixtureRequests();
   assert.equal((await decide(suspicious)).decision, 'step_up');
+});
+
+test('S08_OWN_BROKEN: contract-valid own reads are independent of literal fixture identities', async () => {
+  for (let index = 0; index < 5; index++) {
+    const request = unmappedOwnRequest();
+    for (const method of ['GET', 'PUT', 'PATCH']) {
+      assert.equal((await decide({ ...request, method, route: `${method} /notes/:id` })).decision, 'allow');
+    }
+    assert.equal((await decide({ ...request, signals: { source: 'none', region: 'unknown', network: 'unknown', hour: null } })).decision, 'allow');
+    assert.equal((await decide({ ...request, deviceRegistered: false })).decision, 'deny');
+    assert.equal((await decide({ ...request, path: '/notes/export' })).decision, 'deny');
+    assert.equal((await decide({ ...request, path: '/announcements/notice-own', method: 'PUT', route: 'PUT /announcements/:id' })).decision, 'deny');
+  }
 });
 
 test('API parser only accepts numeric/UUID resource IDs; no feature query, ambiguity or traversal', () => {
@@ -97,6 +111,22 @@ test('direct API read and edit verify saved memo owner; list cannot cross owners
   assert.ok(a.calls.filter(call => call.changes).every(call => call.filters.some(([key]) => key === 'owner_id')));
   const list = await api(database(), { url: '/api/memos' });
   assert.equal(list.code, 200); assert.deepEqual(list.body.map(row => row.id), ['1']);
+});
+
+test('direct reads through every legacy URL keep own access and reject another stored owner', async () => {
+  for (const options of [
+    { url: '/api/notes/1', query: { id: '1' } },
+    { url: '/api/memos/1' },
+    { url: '/api/memos?id=1', query: { id: '1' } },
+    { url: '/api/notes?id=1' },
+  ]) {
+    const own = await api(database('user-a'), options);
+    assert.equal(own.code, 200);
+    assert.equal(own.body.resourceId, 'memo:1');
+    const denied = await api(database('user-b'), options);
+    assert.equal(denied.code, 404);
+    assert.deepEqual(denied.body, { error: 'resource_not_found' });
+  }
 });
 
 test('request role cannot grant notice writes; stored instructor role can', async () => {

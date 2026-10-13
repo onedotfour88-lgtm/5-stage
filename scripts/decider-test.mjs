@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixtureRequests } from './fixture-7.mjs';
+import { unmappedOwnRequest } from './fixture-8.mjs';
 
 const RESPONSE_KEYS = 'decision,reasonCode,requestId,ruleIds,schema';
 
@@ -43,6 +44,7 @@ export async function checkDecider({ decide, ruleIds }) {
     const announcement = { ...normal, path: '/announcements/notice-demo',
       method: 'PUT', route: 'PUT /announcements/:id' };
     checks.push(
+      { name: '시험용 ID 목록에 없는 엔진 정상 메모 읽기', request: unmappedOwnRequest(), decision: 'allow' },
       { name: 'A 자기 메모 수정', request: { ...normal, method: 'PUT', route: 'PUT /notes/:id' }, decision: 'allow' },
       { name: 'B의 A 메모 읽기 거부', request: { ...normal, subjectId: 'other_fixture' }, decision: 'deny', reasonCode: 'resource_forbidden' },
       { name: '일반 학생의 공지 수정 거부', request: announcement, decision: 'deny', reasonCode: 'resource_forbidden' },

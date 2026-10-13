@@ -20,19 +20,28 @@ export function authorizeResource(request) {
       || !/^[a-f0-9]{16}$/u.test(request.deviceId ?? '') || request.service !== 'notes') return false;
   const scoped = item => item && item.classId === request.classId && item.projectId === request.projectId
     && Array.isArray(item.deviceIds) && item.deviceIds.includes(request.deviceId);
+  const sameScope = item => item && item.classId === request.classId && item.projectId === request.projectId;
+  const explicitPolicy = process.env.ALEPH_RESOURCE_POLICY_JSON !== undefined;
   if (['/api/memos', '/api/notes'].includes(request.path)) {
-    return ['GET', 'POST'].includes(request.method) && request.route === `${request.method} ${request.path}`
-      && policy.resources.some(item => scoped(item) && item.type === 'memo' && item.ownerSubjectId === request.subjectId);
+    if (!['GET', 'POST'].includes(request.method) || request.route !== `${request.method} ${request.path}`) return false;
+    const memos = policy.resources.filter(item => sameScope(item) && item.type === 'memo');
+    if (memos.length) return memos.some(item => scoped(item) && item.ownerSubjectId === request.subjectId);
+    // 엔진 계약에는 소유자가 없습니다. 목록·생성의 소유권은 최종 API에서 강제합니다.
+    return !explicitPolicy;
   }
   const match = /^(\/notes|\/api\/notes|\/api\/memos|\/announcements|\/api\/announcements)\/([A-Za-z0-9_-]+)$/u.exec(request.path ?? '');
   if (!match || request.route !== `${request.method} ${match[1]}/:id`
       || !['GET', 'PUT', 'PATCH'].includes(request.method)) return false;
   const type = match[1].includes('announcements') ? 'announcement' : 'memo';
-  // 숫자/UUID 외의 자료 ID는 격리된 시작 틀의 가상 시험에서만 사용합니다.
-  if (!validDataId(match[2]) && !(request.classId === 'class_fixture'
-      && request.projectId === 'project_fixture' && ['demo', 'notice-demo'].includes(match[2]))) return false;
-  const resource = policy.resources.find(item => scoped(item) && item.type === type && item.id === match[2]);
-  if (!resource) return false;
+  // 엔진의 가상 자원 ID는 opaque 문자열입니다. DB ID 형식을 여기서 강요하지 않습니다.
+  if (match[2].length > 128 || ['export', 'download', 'search', 'bulk', 'all', 'admin'].includes(match[2].toLowerCase())) return false;
+  const resource = policy.resources.find(item => sameScope(item) && item.type === type && item.id === match[2]);
+  if (!resource) {
+    // 시험용 목록에 없는 가명 ID도 정상 경로에서 최종 API의 소유자 확인을 받을 수 있습니다.
+    // 명시적 운영 정책이 있는 경우는 그대로 기본 거부합니다.
+    return !explicitPolicy && (type === 'memo' || request.method === 'GET');
+  }
+  if (!scoped(resource)) return false;
   if (type === 'memo') return resource.ownerSubjectId === request.subjectId;
   if (request.method === 'GET') return true;
   return policy.instructors.some(item => scoped(item) && item.subjectId === request.subjectId);

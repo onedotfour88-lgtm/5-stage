@@ -3,6 +3,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
+import { unmappedOwnRequest } from '../scripts/fixture-8.mjs';
 
 /**
  * 로컬 파일 및 6~8단계 가상 판정 요청 자기 점검 (심판 판정 아님)
@@ -99,7 +100,7 @@ export async function runAttackChecks(config = {}) {
       'step_up · step_up_required'],
     ['missing-signals-fixture', { ...normal, requestId: randomUUID(), signals: undefined },
       'step_up · step_up_required'],
-    ['own-memo-edit-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', route: 'PUT /notes/:id' }, 'allow · approved'],
+    ['engine-own-read-fixture', unmappedOwnRequest(), 'allow · approved'],
     ['other-owner-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'other_fixture' }, 'deny · resource_forbidden'],
     ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · resource_forbidden'],
     ['instructor-notice-fixture', { ...normal, requestId: randomUUID(), subjectId: 'instructor_fixture', method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'allow · approved'],
