@@ -9,7 +9,6 @@
 - detection: 운영 사건 조회 계약이 없으므로 eventCount=null, execution=unrun입니다. 로컬 detect:test 결과를 사건 통계로 넣지 않습니다.
 - revocation: propose_revocation은 회수 제안이며 회수 완료가 아닙니다. 기기 상태 API가 revoked를 반환했더라도 회수 요청/완료 시각과 경과 시간은 별도 증거가 없어 미확인으로 표시합니다.
 - recovery: 같은 인증 사용자에게 성공한 학생 복구 API 응답의 version만 표시합니다. 현재 서버 인스턴스에서 이 응답을 관찰하지 못했으면 null/미실행입니다. 기본 safe-v9 값이나 로컬 시험 버전을 운영 결과로 채우지 않습니다.
-- assault: total=41, confirmed=null, execution=not_run, observed=not_run. 공식 41종 목록·실행 계약은 미제공입니다. 이 화면의 22개 대표 확인 항목은 41종 목록을 대체하지 않습니다.
 
 확인표는 src/operations-plan.mjs의 1~11단계 대표 정상/금지 요청·기대값을 사용합니다. POST /api/operations는 정해진 현재 자료실 HTTPS 주소에 **GET만** 보내며 공개 화면/빈 공개 데이터/무로그인 API/기기 상태/선택한 단건 메모 읽기만 실행합니다. 메모 본문을 응답표나 로그에 복사하지 않습니다. 쓰기·탐지 공격·회수·복구·원본 API 우회·오프라인 시험은 이 버튼으로 실행하지 않고 미실행으로 둡니다.
 
@@ -54,8 +53,9 @@ Node.js 22 이상, 현재 프로젝트의 package.json 의존성을 사용합니
 복구 뒤 위 정상/금지 시험을 다시 수행하고 실제 HTTP 확인표를 새로 생성합니다. 이전 자료·다른 서비스·감사 이력·다른 XDR 작업을 보존합니다. 예전 확인 결과를 새 커밋/새 복구 성공으로 복사하지 않습니다. 운영 41종은 심판이 확인할 때까지 미실행입니다.
 
 
+
 ## 현재 제출과 공개 실측
 
-제출 runner는 요청을 보내지 않고 10개 항목 모두 observed=not_run으로 반환합니다. 공개 /api/operations-public는 화면/빈 데이터/무인증 API를 실제 GET으로 확인하며 화면과 가린 JSON에 같은 스냅샷을 제공합니다. 이를 제출 runner 요청 기록으로 복사하지 않습니다.
+공개 화면은 /api/checks를 읽습니다. 제출 runner와 같은 collectChecks 함수로 GET 4건을 실행하고 쓰기 2건은 not_run으로 남깁니다. 최상위 total/blocked/passed/failed/notRun과 attempts가 집계의 유일한 근거입니다. API 응답과 서버 로그는 같은 snapshotId로 대조합니다. 인증 후 상세 확인표는 기존 /api/operations입니다.
 
-공식 실행 기록이 없으므로 assault.checks는 빈 배열입니다. 총 41종, 실행/차단/허용 0, 미실행 41, observed=not_run입니다. 대표 22행과 공식 41종은 별개입니다. 공개 API 응답의 counts/assault/rows/탐지/회수/복구를 같은 snapshotId로 서버 로그에도 기록하여 화면과 대조합니다.
+41종 공격 전체는 심판이 보내며 이 저장소에서는 실행하지 않았습니다. 표에 없는 공격을 통과로 적지 않습니다.

@@ -12,6 +12,19 @@ async function getAuth(){
  return auth;
 }
 function clear(message){epoch++;$('room').classList.add('hidden');$('results').replaceChildren();$('masked-record').textContent='';$('status').textContent=message;}
+function renderChecks(data){
+ $('revision').textContent='확인한 배포 커밋: '+(data.commit??'미확인')+' · 기록 ID: '+data.snapshotId;
+ $('retention').textContent='아래는 제출 점검과 같은 함수·목록으로 실행한 이번 GET 결과입니다. 각 실행의 ID와 시각은 다릅니다.';
+ $('rules').replaceChildren();for(const rule of data.ruleSummary.rules){const li=document.createElement('li');li.textContent=rule.id+' · '+rule.description;$('rules').append(li);}
+ $('detection').textContent='미실행 · 운영 사건 조회 미연결';
+ $('revocation').textContent='미실행 · 운영 회수 조회 미연결';
+ $('recovery').textContent='미실행 · 공개 점검에서 복구 실행 안 함';
+ $('counts').textContent=`제출 공통 점검: 전체 ${data.total} · 정상 허용 ${data.passed} · 금지 거부 ${data.blocked} · 실패 ${data.failed} · 미실행 ${data.notRun}`;
+ $('assault').textContent=data.notice;
+ $('results').replaceChildren();for(const row of data.attempts){const tr=document.createElement('tr');
+ for(const value of [row.stage,row.kind==='normal'?'정상':'금지',row.attackId,row.expected,row.observed,row.source??'미실행',row.requestId??(row.requestKey?'추적 키: '+row.requestKey:'—'),row.checkedAt??'—']){const td=document.createElement('td');td.textContent=String(value);tr.append(td);}$('results').append(tr);}
+ $('masked-record').textContent=JSON.stringify(data,null,2);$('room').classList.remove('hidden');
+}
 function render(data){
  $('revision').textContent='확인한 배포 커밋: '+(data.commit??'배포 커밋 확인 불가')+(data.snapshotId?' · 기록 ID: '+data.snapshotId:'');
  $('retention').textContent=data.retention+' API 기록은 현재 인스턴스의 최근 기록이며 영구 통합 이력이 아닙니다.';
@@ -20,7 +33,7 @@ function render(data){
  $('revocation').textContent='실제 회수: 미실행 · 완료 시각/경과 시간 미확인'+(data.revocation.reportedDeviceStatus?' · 기기 상태 API: '+data.revocation.reportedDeviceStatus:'');
  $('recovery').textContent=data.recovery.version?'서버가 확인한 버전: '+data.recovery.version:'미실행 · 성공한 복구 응답 미조회';
  $('counts').textContent=`대표 확인표: 실측 ${data.counts.measured} · 정상 허용 ${data.counts.normalAllowed} · 금지 거부 ${data.counts.forbiddenBlocked} · 기대 일치 ${data.counts.matched} · 미실행 ${data.counts.unrun} · 요청 오류 ${data.counts.errors}`;
- $('assault').textContent=`41종 총공세: ${data.assault.observed === 'not_run' ? '미실행 (not_run) · ' : ''}실행 ${data.assault.executed} · 막음 ${data.assault.blocked} · 미실행 ${data.assault.notRun} · 심판 최종 결과 미연결`;
+ $('assault').textContent='41종 공격 전체는 심판이 보내며 이 저장소에서는 실행하지 않았습니다. 표에 없는 공격을 통과로 적지 않습니다.';
  $('results').replaceChildren();for(const row of data.rows){const tr=document.createElement('tr');
  for(const [i,value]of [row.stage,row.kind==='normal'?'정상':'금지',row.label,row.expected,row.actual??'미실행',row.source??'—',row.requestId?(row.requestId+' ('+row.requestIdSource+')'):'—',row.checkedAt??'—'].entries()){
  const td=document.createElement('td');td.textContent=String(value);if(i===6)td.className='id';tr.append(td);}$('results').append(tr);}
@@ -48,10 +61,10 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)clear('화�
 async function loadPublic(){
  const ticket=epoch;
  try{
-  const response=await fetch('/api/operations-public',{method:'GET',cache:'no-store',credentials:'omit'});
+  const response=await fetch('/api/checks',{method:'GET',cache:'no-store',credentials:'omit'});
   if(!response.ok)throw new Error();const data=await response.json();
   if(ticket!==epoch||!navigator.onLine)return;
-  render(data);$('resume').classList.remove('hidden');$('verify').disabled=true;$('logout').disabled=true;
+  renderChecks(data);$('resume').classList.remove('hidden');$('verify').disabled=true;$('logout').disabled=true;
   $('status').textContent='공개 정상·무로그인 거부의 실제 GET 결과 · 보호 사용자 시험은 로그인 후 별도 확인';
  }catch{if(ticket===epoch)clear('공개 실측 기록 조회 실패 · 없는 결과를 채우지 않습니다.');}
 }

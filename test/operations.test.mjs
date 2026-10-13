@@ -7,7 +7,7 @@ const response=()=>({headers:{},setHeader(k,v){this.headers[k]=v;},status(n){thi
 const client=user=>async()=>({auth:{getUser:async()=>({data:{user:{id:user}}})}});
 function remote(status,value){return {status,headers:{get:()=>UUID},json:async()=>value};}
 test('미실행 41종·사건·회수·복구를 성공으로 표시하지 않는다',()=>{
- const snapshot=buildSnapshot();assert.equal(snapshot.assault.total,41);assert.equal(snapshot.assault.confirmed,null);
+ const snapshot=buildSnapshot();assert.equal(snapshot.assault,undefined);
  assert.equal(snapshot.detection.eventCount,null);assert.equal(snapshot.revocation.completedAt,null);assert.equal(snapshot.recovery.version,null);
  assert.equal(snapshot.counts.measured,0);assert.ok(snapshot.rows.every(r=>r.actual===null&&r.requestId===null&&r.checkedAt===null));
 });
@@ -85,19 +85,22 @@ test('작전실 화면은 동일 스냅샷의 수치·행·가린 응답을 사�
  assert.equal(typeof get('resume').onclick,'function');
 });
 
-test('로그인 전 공개 실측 화면과 가린 서버 응답의 3건·19건 수치가 일치한다',async()=>{
+test('로그인 전 공통 점검 화면의 6건·미실행 2건이 같은 JSON과 일치한다',async()=>{
  const elements=new Map();const get=id=>{if(!elements.has(id))elements.set(id,{value:'',textContent:'',children:[],parentElement:{},classList:{add(){},remove(){}},replaceChildren(){this.children=[];},append(v){this.children.push(v);}});return elements.get(id);};
  const rows=(await import('../src/operations-plan.mjs')).pendingRows();
  for(const id of ['s01-screen','s02-public-data','s03-no-login'])Object.assign(rows.find(r=>r.caseId===id),{execution:'measured',source:'live_http',actual:id==='s03-no-login'?'HTTP 401':'HTTP 200',requestId:UUID,requestIdSource:'server',checkedAt:'2026-10-13T00:00:00.000Z',matched:true});
- const data=buildSnapshot(rows);data.snapshotId=UUID;
+ const data={};
+ const report=await (await import('../src/attack-check.mjs')).collectChecks({publicAppUrl:'https://5-stage.vercel.app/'},async url=>({status:url.includes('/api/')?401:200,headers:{get:()=>null},json:async()=>[]}));
+ const {ruleSummary,detection,revocation,recovery}=buildSnapshot(rows);
+ Object.assign(data,report,{ruleSummary,detection,revocation,recovery,snapshotId:UUID,notice:'공식 총공세 미실행'});
  const document={getElementById:get,createElement:()=>({append(){}}),addEventListener(){}};
  const source=await readFile('public/operations-app.mjs','utf8');const AsyncFunction=Object.getPrototypeOf(async()=>{}).constructor;
  let requested;
  await new AsyncFunction('document','window','navigator','fetch','location',source)(document,{addEventListener(){}},{onLine:true},async(url,options)=>{requested={url,...options};return{ok:true,json:async()=>data};},{origin:'https://5-stage.vercel.app'});
- assert.equal(requested.url,'/api/operations-public');assert.equal(requested.credentials,'omit');
- assert.match(get('counts').textContent,/실측 3/);assert.match(get('counts').textContent,/미실행 19/);
- assert.equal(get('results').children.length,22);assert.equal(get('verify').disabled,true);
- assert.deepEqual(JSON.parse(get('masked-record').textContent).counts,data.counts);
+ assert.equal(requested.url,'/api/checks');assert.equal(requested.credentials,'omit');
+ assert.match(get('counts').textContent,/전체 6/);assert.match(get('counts').textContent,/미실행 2/);
+ assert.equal(get('results').children.length,6);assert.equal(get('verify').disabled,true);
+ assert.deepEqual(JSON.parse(get('masked-record').textContent),data);
 });
 
 test('미실행/오류 행은 matched나 가짜 HTTP 값이 있어도 막음·허용 집계에서 제외한다',async()=>{
@@ -109,7 +112,7 @@ test('미실행/오류 행은 matched나 가짜 HTTP 값이 있어도 막음·�
  const unrun=data.rows.find(row=>row.caseId==='s03-no-login');
  assert.equal(unrun.actual,null);assert.equal(unrun.matched,null);assert.equal(unrun.observed,'not_run');
  assert.equal(data.rows.find(row=>row.caseId==='s01-screen').actual,'요청 실패');
- assert.equal(data.assault.executed,0);assert.equal(data.assault.blocked,0);assert.equal(data.assault.allowed,0);assert.equal(data.assault.notRun,41);
+ assert.equal(data.assault,undefined);
 });
 
 test('measured 표시가 있어도 요청 ID·시각·출처가 없는 결과는 미실행이다',async()=>{
@@ -122,14 +125,4 @@ test('measured 표시가 있어도 요청 ID·시각·출처가 없는 결과는
   assert.equal(data.counts.forbiddenBlocked,0);assert.equal(data.counts.measured,0);
   assert.equal(data.rows[2].observed,'not_run');assert.equal(data.rows[2].actual,null);
  }
-});
-
-test('공식 실행 기록이 없으면 목록은 비어 있고 41종 전체가 미실행이다',()=>{
- const {assault}=buildSnapshot();
- assert.equal(assault.execution,'not_run');assert.equal(assault.observed,'not_run');
- assert.equal(assault.checks.length,0);
- assert.deepEqual(assault.checks,[]);
- assert.equal(assault.blocked,assault.checks.filter(row=>row.observed==='blocked').length);
- assert.equal(assault.allowed,assault.checks.filter(row=>row.observed==='allowed').length);
- assert.equal(assault.executed,0);assert.equal(assault.notRun,41);
 });

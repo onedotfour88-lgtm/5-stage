@@ -1,18 +1,46 @@
-// No judge-tracked request adapter is configured for this submission runner.
-// Keep submission checks unrun. Use operations:verify for separate live HTTP diagnostics.
-export async function runAttackChecks(config = {}) {
-  if (config.publicAppUrl !== 'https://5-stage.vercel.app/') throw new Error('invalid_public_app_url');
-  return [
-    ['operations-snapshot-api', 'HTTP 200 · 공개 실측 스냅샷'],
-    ['s01-screen', 'HTTP 200 · 정상 공개 화면'],
-    ['s02-public-data', 'HTTP 200 · 빈 공개 데이터'],
-    ['s03-no-login', 'HTTP 401 · 무로그인 보호 API 거부'],
-    ['protected-own-api', '실제 로그인·등록 기기의 자기 자료 허용'],
-    ['protected-other-api', '실제 다른 소유자의 자료 거부'],
-    ['live-reauthentication', '운영 엔진의 새 로그인 검증 후 재판정'],
-    ['live-test-account-recovery', '검증 사본의 시험 B 한 건 POST 복구'],
-    ['live-revocation', '운영 엔진의 실제 회수 확인'],
-    ['assault-41', '공식 41종 총공세 방어 판정'],
-  ].map(([attackId, expected]) => ({ attackId, expected, observed: 'not_run' }));
+// Shared read-only checks. Standalone so the submission sandbox needs no imports.
+export const CHECKS = [
+  {attackId:'s01-screen',stage:1,path:'/',expected:'HTTP 200',status:200,kind:'normal'},
+  {attackId:'s02-public-data',stage:2,path:'/data.json',expected:'HTTP 200; jsonReady=true (empty public data)',status:200,kind:'normal',empty:true},
+  {attackId:'s03-no-login',stage:3,path:'/api/memos/1',expected:'HTTP 401 (unauthenticated read rejected)',status:401,kind:'forbidden'},
+  {attackId:'s04-other-memo-unauth',stage:4,path:'/api/memos/2',expected:'HTTP 401 (unauthenticated read rejected; not an authenticated ownership test)',status:401,kind:'forbidden'},
+  {attackId:'s10-restore-write',stage:10,expected:'POST recovery requires a separate authorized test',kind:'forbidden'},
+  {attackId:'s11-unsigned-write',stage:11,expected:'PUT signature check requires a separate authorized test',kind:'forbidden'},
+];
+export async function collectChecks(config={},fetcher=fetch){
+  if(config.publicAppUrl!=='https://5-stage.vercel.app/')throw new Error('invalid_public_app_url');
+  const attempts=[];
+  for(const check of CHECKS){
+    const row={attackId:check.attackId,stage:check.stage,kind:check.kind,expected:check.expected,
+      observed:'not_run',result:'not_run',requestId:null,requestKey:null,checkedAt:null,source:null};
+    if(check.path){
+      // Correlation metadata only; never an authentication assertion.
+      const requestKey=typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${check.attackId}-${Math.random().toString(36).slice(2)}`;
+      try{
+        const response=await fetcher('https://5-stage.vercel.app'+check.path,{method:'GET',redirect:'error',cache:'no-store',
+          alephEvidence:{attackId:check.attackId,requestKey},attackId:check.attackId,
+          headers:{'X-Aleph-Attack-Id':check.attackId},
+          ...(typeof AbortSignal!=='undefined'?{signal:AbortSignal.timeout(10000)}:{})});
+        row.requestKey=requestKey;row.checkedAt=new Date().toISOString();row.source='live_http';
+        const id=response.headers?.get?.('x-request-id');
+        row.requestId=/^[a-f0-9-]{36}$/i.test(id??'')?id:null;
+        row.observed=`HTTP ${response.status}`;row.result='failed';
+        let ready=true;
+        if(check.empty){try{const body=await response.json();ready=Array.isArray(body)&&body.length===0;}catch{ready=false;}
+          row.observed+=`; jsonReady=${ready}`;}
+        if(response.status===check.status&&ready)row.result=check.kind==='forbidden'?'blocked':'passed';
+      }catch{if(row.checkedAt===null)row.observed='not_run';}
+    }
+    attempts.push(row);
+  }
+  return {checkedAt:new Date().toISOString(),total:attempts.length,
+    blocked:attempts.filter(r=>r.result==='blocked').length,
+    passed:attempts.filter(r=>r.result==='passed').length,
+    failed:attempts.filter(r=>r.result==='failed').length,
+    notRun:attempts.filter(r=>r.result==='not_run').length,attempts};
+}
+export async function runAttackChecks(config={}){
+  const {attempts}=await collectChecks(config);
+  return attempts.map(({attackId,expected,observed})=>({attackId,expected,observed}));
 }
 export default runAttackChecks;

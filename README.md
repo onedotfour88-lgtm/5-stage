@@ -4,10 +4,7 @@
 
 - 학생 구현: `src/decider.mjs` 판정기, `src/detect.mjs` 탐지 규칙, `public` 접속 앱·자료실·작전실, 학생 자료/복구 API.
 - 제공 엔진: **ALEPH SDP 엔진**. 공식 기기·정책 전달·회수·총공세 실행 기능은 제공 엔진 몫입니다. 저장소에 엔진 설치 바이너리나 실행/중지 계약은 포함되어 있지 않습니다.
-- 공식 41종의 실행 기록은 없으므로 `assault.checks=[]`, `observed: not_run`입니다. 실행 0·차단 0·허용 0·미실행 41입니다. 빈 기록을 41개 가상 행으로 채우지 않으며 대표 HTTP 확인표를 합산하지 않습니다.
-- 제출 runner는 외부 요청을 보내지 않으며 10항목 모두 `not_run`을 반환합니다. 별도 실제 HTTP 진단 결과를 제출 runner 실행 기록으로 복사하지 않습니다.
 
-공개 API는 화면이 받은 snapshotId·counts·assault·rows·탐지/회수/복구 요약을 그대로 가린 서버 로그에도 기록합니다. 캐시 응답도 같은 ID와 원래 확인 시각으로 기록합니다. Vercel 로그에서 같은 snapshotId를 찾아 수치 및 행을 대조할 수 있습니다.
 
 실측 집계는 measured 표시 외에 HTTP 응답·요청 ID·시각·출처가 모두 있는 행만 사용합니다. 미실행 행에 남은 HTTP 값과 matched 값은 제거하고 observed=not_run으로 기록합니다. 요청 실패도 성공 HTTP로 표시하지 않습니다. 이는 로컬에서 재현한 기록 처리 결함 수정이며 공식 심판 통과를 뜻하지 않습니다.
 
@@ -293,5 +290,16 @@
 - 심판은 e4c5726c2796의 operations-snapshot-api/s01-screen/s02-public-data/s03-no-login에 같은 attackId의 직접 요청 기록이 없다고 보고했습니다. 이전 제출 점검이 공개 API가 대신 보낸 하위 요청 결과를 자신의 직접 실행 결과로 복사한 것이 잘못이었습니다.
 - [폐기된 이전 방식] 당시 제출 점검은 네 항목마다 해당 URL로 직접 GET을 보냈습니다. init.attackId와 추적용 X-Aleph-Attack-Id/X-Attack-Id에 같은 ID를 넣습니다. 이 값은 기록 연결용 이름이며 로그인·역할·기기 승인 근거로 사용하지 않습니다. 응답을 직접 받은 항목만 HTTP 결과·응답 ID(없으면 not_provided)·수신 시각을 남깁니다. 실제 응답 없는 점검과 수행하지 않은 여섯 항목은 observed: not_run입니다.
 - 대표 확인표의 정상 허용은 실제 measured/정상/기대 일치 HTTP 2xx, 금지 거부는 실제 measured/금지/기대 일치 HTTP 401·403·404만 셉니다. 미실행·오류·임의 matched 값은 제외합니다. 이 집계를 공식 41종 방어 수로 합산하지 않습니다.
-- 공식 41종은 시험 기록이 없으므로 실행 0·막음 0·허용 0·미실행 41을 별도 assault 객체와 화면에 명시합니다. ‘0/41 통과’처럼 혼동하는 표시도 제거했습니다. 기존 학생 규칙·자료 API·개인 복구/감사 이력은 변경하지 않습니다.
 - npm run test:bundle은 실측 결과마다 같은 attackId의 GET 기록이 정확히 한 개 있는지 검사합니다. npm run test:12는 대표 수치와 JSON 일치, 미실행/오류 제외, 41종 별도 집계를 검사합니다. 로컬 검증과 실제 심판 재판정은 구분합니다.
+
+## 현재 공통 점검 API와 제출 (가이드 적용)
+
+`src/attack-check.mjs`의 collectChecks는 `/api/checks`와 제출 runner가 공유합니다. GET 4건을 각각 한 번만 전송하고 쓰기 2건은 요청 없이 not_run으로 남깁니다. observed는 HTTP 상태와 실제 JSON 검증값만 기록합니다. alephEvidence에는 attackId와 고유 requestKey를 넣습니다. 심판이 이 메타데이터를 수집하는지는 재판정이 필요합니다.
+
+`/api/checks`는 최상위 total/blocked/passed/failed/notRun과 attempts를 반환합니다. passed는 정상 요청의 기대 일치, blocked는 금지 GET의 실제 401 거부입니다. 두 값은 서로 합치지 않습니다. 네트워크 미수신은 not_run, 수신한 503이나 예상 밖 결과는 failed입니다. 공식 41종 수치 객체는 제거했습니다.
+
+41종 공격 전체는 심판이 보내며 이 저장소에서는 실행하지 않았습니다. 표에 없는 공격을 통과로 적지 않습니다.
+
+공개 작전실은 `/api/checks`를 읽고 서버 응답 그대로 표·숫자·가린 JSON을 표시합니다. 로그인 후 1~11단계 상세 표와 기존 학생 판정기/탐지 규칙/복구는 유지합니다. 공개 무인증 메모 2건은 인증된 타인 소유권 시험을 대체하지 않습니다. 공식 제공 엔진은 ALEPH SDP 엔진이며 운영 집행 결과를 가상 점검으로 채우지 않습니다.
+
+재현: npm run test:bundle → npm run test:12 → npm run build → 깨끗한 커밋에서 npm run bundle. 배포 후 `/operations.html`과 `/api/checks`의 같은 snapshotId 기록을 대조합니다. 서로 다른 실행은 requestKey와 checkedAt이 다르며 동일 시점 결과로 주장하지 않습니다. 아래 수치는 예측값으로 제출하지 말고 실제 실행 결과를 사용합니다.

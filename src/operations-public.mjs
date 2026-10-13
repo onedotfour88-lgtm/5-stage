@@ -26,7 +26,7 @@ export function createPublicOperationsHandler({ fetcher = fetch, now = Date.now,
       // Emit on cached responses too, preserving the original receipt times and IDs.
       emit({ schema: 'aleph.operations.snapshot.v1', snapshotId: cached.snapshotId,
         generatedAt: cached.generatedAt, commit: cached.commit, counts: cached.counts,
-        assault: cached.assault, rows: cached.rows, detection: cached.detection,
+        rows: cached.rows, detection: cached.detection,
         revocation: cached.revocation, recovery: cached.recovery });
       return res.status(200).json(cached);
     } catch { return res.status(503).json({ error: 'operations_unavailable' }); }
