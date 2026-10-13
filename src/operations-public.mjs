@@ -17,13 +17,17 @@ export function createPublicOperationsHandler({ fetcher = fetch, now = Date.now,
           const result = { ...buildSnapshot(rows, commit), snapshotId: randomUUID(), visibility: 'public_get_probes_only' };
           result.retention = '고정 공개 GET 실측만 담은 서버 기록입니다. 최대 60초 재사용하며 보호 자료/개인 이력을 포함하지 않습니다.';
           capturedAt = now(); cached = result;
-          emit({ schema: 'aleph.operations.snapshot.v1', snapshotId: result.snapshotId,
-            generatedAt: result.generatedAt, commit: result.commit, counts: result.counts });
           return result;
         })().finally(() => { running = null; });
         await running;
       }
       res.setHeader('X-Request-ID', cached.snapshotId);
+      // Log the same safe public evidence used by the UI, including unrun assault state.
+      // Emit on cached responses too, preserving the original receipt times and IDs.
+      emit({ schema: 'aleph.operations.snapshot.v1', snapshotId: cached.snapshotId,
+        generatedAt: cached.generatedAt, commit: cached.commit, counts: cached.counts,
+        assault: cached.assault, rows: cached.rows, detection: cached.detection,
+        revocation: cached.revocation, recovery: cached.recovery });
       return res.status(200).json(cached);
     } catch { return res.status(503).json({ error: 'operations_unavailable' }); }
   };

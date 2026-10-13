@@ -40,6 +40,14 @@ test('공개 응답은 정상/금지 실측만 보관하고 41종에는 합산�
  assert.equal(first.body.counts.measured,3);assert.equal(first.body.counts.normalAllowed,2);assert.equal(first.body.counts.forbiddenBlocked,1);assert.equal(first.body.counts.unrun,19);
  assert.equal(first.body.assault.executed,0);assert.equal(first.body.assault.blocked,0);assert.equal(first.body.assault.allowed,0);assert.equal(first.body.assault.notRun,41);
  assert.deepEqual(logs.find(row=>row.schema==='aleph.operations.snapshot.v1').counts,first.body.counts);
+ const snapshots=logs.filter(row=>row.schema==='aleph.operations.snapshot.v1');
+ assert.equal(snapshots.length,2);
+ for(const snapshot of snapshots){
+  for(const key of ['snapshotId','counts','assault','rows','detection','revocation','recovery'])
+   assert.deepEqual(snapshot[key],first.body[key]);
+  assert.deepEqual(snapshot.assault.checks,[]);
+  assert.equal(snapshot.assault.observed,'not_run');
+ }
  assert.doesNotMatch(JSON.stringify(first.body),/DO_NOT_COPY/);
  const denied=res();await handler({method:'POST'},denied);assert.equal(denied.code,405);
 });

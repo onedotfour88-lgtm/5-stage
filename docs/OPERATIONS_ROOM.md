@@ -58,4 +58,4 @@ Node.js 22 이상, 현재 프로젝트의 package.json 의존성을 사용합니
 
 제출 runner는 요청을 보내지 않고 10개 항목 모두 observed=not_run으로 반환합니다. 공개 /api/operations-public는 화면/빈 데이터/무인증 API를 실제 GET으로 확인하며 화면과 가린 JSON에 같은 스냅샷을 제공합니다. 이를 제출 runner 요청 기록으로 복사하지 않습니다.
 
-공식 assault.checks의 41개 위치는 공식 ID가 없는 미실행 자리입니다. 각 observed=not_run, attackId/requestId/checkedAt=null이며 집계는 이 목록에서 계산합니다. 대표 22행과 공식 41종은 별개입니다.
+공식 실행 기록이 없으므로 assault.checks는 빈 배열입니다. 총 41종, 실행/차단/허용 0, 미실행 41, observed=not_run입니다. 대표 22행과 공식 41종은 별개입니다. 공개 API 응답의 counts/assault/rows/탐지/회수/복구를 같은 snapshotId로 서버 로그에도 기록하여 화면과 대조합니다.
