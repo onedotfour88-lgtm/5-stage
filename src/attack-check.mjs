@@ -5,7 +5,7 @@ import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
 
 /**
- * 로컬 파일 및 6단계 가상 판정 요청 자기 점검 (심판 판정 아님)
+ * 로컬 파일 및 6~7단계 가상 판정 요청 자기 점검 (심판 판정 아님)
  * - 각 결과 객체는 attackId, expected, observed 속성만 포함합니다.
  */
 export async function runAttackChecks(config = {}) {
@@ -81,13 +81,24 @@ export async function runAttackChecks(config = {}) {
     });
   }
 
-  const { normal } = fixtureRequests();
+  const { normal, suspicious } = fixtureRequests();
   for (const [attackId, request, expected] of [
     ['device-registered-fixture', normal, 'allow · approved'],
     ['device-unregistered-fixture', { ...normal, requestId: randomUUID(), deviceRegistered: false },
       'deny · device_not_registered'],
     ['device-missing-fixture', { ...normal, requestId: randomUUID(), deviceRegistered: undefined },
       'deny · device_not_registered'],
+    ['compound-risk-fixture', suspicious, 'step_up · step_up_required'],
+    ['confirmed-risk-fixture', { ...suspicious, requestId: randomUUID(),
+      stepUp: { verified: true, authAgeSeconds: 60 } }, 'allow · approved'],
+    ['foreign-region-only-fixture', { ...normal, requestId: randomUUID(),
+      signals: { ...normal.signals, region: 'foreign' } }, 'allow · approved'],
+    ['unknown-source-fixture', { ...normal, requestId: randomUUID(),
+      signals: { ...normal.signals, source: 'client' },
+      headers: { 'x-aleph-source': 'judge_fixture', 'x-network': 'usual' } },
+      'step_up · step_up_required'],
+    ['missing-signals-fixture', { ...normal, requestId: randomUUID(), signals: undefined },
+      'step_up · step_up_required'],
   ]) {
     const response = await decide(request);
     checks.push({ attackId, expected: `로컬 가상 요청: ${expected}`,
@@ -110,6 +121,9 @@ export async function runAttackChecks(config = {}) {
   checks.push({ attackId: 'registered-device-browser',
     expected: '등록 기기에서 기존 자료실 화면과 본인 자료 읽기 성공',
     observed: '미실행: 등록 기기 및 로그인된 접속 세션 확인 필요' });
+  checks.push({ attackId: 'live-reauthentication',
+    expected: '엔진이 동일 주체의 새 로그인을 검증한 환경에서 확인 전 자료 차단 및 새 요청 허용',
+    observed: '미실행: 추가 확인 요청 이후 동일 주체의 새 로그인 시각을 검증하는 실제 계약·엔진 세션 없음' });
   return checks;
 }
 
