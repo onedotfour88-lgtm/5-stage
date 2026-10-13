@@ -17,6 +17,8 @@ export function parseApiResource(req, type) {
     const pathId = url.pathname === prefix ? null : url.pathname.slice(prefix.length + 1);
     const queryId = url.searchParams.get('id');
     const suppliedId = req.query?.id;
+    if (queryId !== null && !validDataId(queryId)) return null;
+    if (suppliedId !== undefined && !validDataId(suppliedId)) return null;
     if (suppliedId !== undefined && typeof suppliedId !== 'string') return null;
     if ((pathId && queryId && pathId !== queryId)
         || (suppliedId && pathId && suppliedId !== pathId)

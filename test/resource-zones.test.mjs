@@ -10,7 +10,7 @@ import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
 function engine(overrides = {}) { return { ...fixtureRequests().normal, ...overrides }; }
 const notice = { path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' };
 
-test('A own memo read/write allowed; B denied; announcements read-only for all identities', async () => {
+test('own memo allowed; other owner denied; only server-registered instructors may edit notices', async () => {
   for (const method of ['GET', 'PUT', 'PATCH']) {
     const r = await decide(engine({ method, route: `${method} /notes/:id` }));
     assert.equal(r.decision, 'allow');
@@ -23,7 +23,8 @@ test('A own memo read/write allowed; B denied; announcements read-only for all i
     for (const prefix of ['/announcements', '/api/announcements']) {
       for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
         assert.equal((await decide(engine({ subjectId, path: `${prefix}/notice-demo`, method,
-          route: `${method} ${prefix}/:id`, stepUp: { verified: true, authAgeSeconds: 0 } }))).decision, 'deny');
+          route: `${method} ${prefix}/:id`, stepUp: { verified: true, authAgeSeconds: 0 } }))).decision,
+          subjectId === 'instructor_fixture' && ['PUT','PATCH'].includes(method) ? 'allow' : 'deny');
       }
     }
   }
@@ -52,11 +53,15 @@ test('resource selection query cannot inherit permission from a collection or an
     const route = `GET ${path.endsWith('/demo') ? path.slice(0, -4) + ':id' : path}`;
     const base = engine({ path, route });
     assert.equal((await decide(base)).decision, 'allow');
-    for (const query of ['id=other-owner-note', 'id=demo', 'action=export']) {
+    for (const query of ['id=demo','id=other-owner-note','action=export','id=demo&role=instructor','id=demo&id=demo']) {
       const result = await decide({ ...base, queryLength: query.length,
         querySha256: createHash('sha256').update(query).digest('hex') });
-      assert.equal(result.decision, 'deny');
-      assert.equal(result.reasonCode, 'resource_forbidden');
+      assert.equal(result.decision, query === 'id=demo' ? 'allow' : 'deny');
+      assert.equal(result.reasonCode, query === 'id=demo' ? 'approved' : 'resource_forbidden');
+      if (query === 'id=demo') {
+        assert.equal((await decide({ ...base, subjectId: 'other_fixture', queryLength: query.length,
+          querySha256: createHash('sha256').update(query).digest('hex') })).decision, 'deny');
+      }
     }
     for (const overrides of [{ queryLength: undefined }, { queryLength: '0' },
       { queryLength: -1 }, { querySha256: undefined }, { querySha256: '0'.repeat(64) }]) {
@@ -88,6 +93,8 @@ test('API parser only accepts numeric/UUID resource IDs; no feature query, ambig
   assert.notEqual(resourceId('memo', '1'), resourceId('announcement', '1'));
   assert.equal(parseApiResource({ url: '/api/notes/1', query: { id: '1' } }, 'memo').resourceId, 'memo:1');
   assert.equal(parseApiResource({ url: '/api/memos?id=1' }, 'memo').id, '1');
+  assert.equal(parseApiResource({ url: '/api/notes/1?id=' }, 'memo'), null);
+  assert.equal(parseApiResource({ url: '/api/notes/1', query: { id: '' } }, 'memo'), null);
   for (const url of ['/api/notes/export', '/api/notes/1/export', '/api/notes/1/',
     '/api/notes/%31', '/api/notes/1/../2', '/api/notes/1?id=2', '/api/memos?id=1&id=2',
     '/api/memos?action=export', '/api/memos?id=1&role=instructor', '/api/notes/1#x', '/api/notes/\n1']) {
@@ -160,7 +167,7 @@ test('direct reads through every legacy URL keep own access and reject another s
   }
 });
 
-test('announcement API denies writes even with stored instructor role; no DB write is attempted', async () => {
+test('announcement API uses saved instructor role; forged request role cannot grant writes', async () => {
   const request = { type: 'announcement', url: '/api/announcements/1', method: 'PUT', body: { title: 'fixture', body: 'fixture', role: 'instructor' } };
   for (const user of ['user-a', 'user-b', 'teacher']) {
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
@@ -168,10 +175,13 @@ test('announcement API denies writes even with stored instructor role; no DB wri
       const before = structuredClone(db.rows.announcements);
       const denied = await api(db, { ...request, method,
         url: method === 'POST' ? '/api/announcements' : request.url });
-      assert.equal(denied.code, method === 'DELETE' ? 405 : 403);
-      if (method !== 'DELETE') assert.equal(denied.body.error, 'announcement_read_only');
-      assert.deepEqual(db.rows.announcements, before);
-      assert.equal(db.calls.length, 0);
+      const allowed = user === 'teacher' && method !== 'DELETE';
+      assert.equal(denied.code, method === 'DELETE' ? 405 : allowed ? (method === 'POST' ? 201 : 200) : 403);
+      if (!allowed) {
+        if (method !== 'DELETE') assert.equal(denied.body.error, 'instructor_required');
+        assert.deepEqual(db.rows.announcements, before);
+        assert.ok(db.calls.every(call => !call.changes && !call.insertion));
+      } else assert.ok(db.calls.some(call => call.changes || call.insertion));
     }
   }
   assert.equal((await api(database(), { ...request, method: 'GET' })).code, 200);
@@ -211,6 +221,35 @@ test('production policy is server supplied and bound to exact pseudonym, device 
     assert.equal((await decide({ ...req, subjectId: 'subject_other', role: 'instructor' })).decision, 'deny');
     process.env.ALEPH_RESOURCE_POLICY_JSON = '{}';
     assert.equal((await decide(req)).decision, 'deny');
+  } finally {
+    if (previous === undefined) delete process.env.ALEPH_RESOURCE_POLICY_JSON;
+    else process.env.ALEPH_RESOURCE_POLICY_JSON = previous;
+  }
+});
+
+test('ID query fingerprints match Node SHA-256 across block boundaries and cannot cross registered owners', async () => {
+  const previous = process.env.ALEPH_RESOURCE_POLICY_JSON;
+  try {
+    for (const length of [1,36,52,53,61,62,116,117,128]) {
+      const ownId = 'x'.repeat(length), otherId = 'other-memo';
+      const resource = (id, ownerSubjectId) => ({ type: 'memo', id, ownerSubjectId,
+        classId: 'class_fixture', projectId: 'project_fixture', deviceIds: ['a'.repeat(16)] });
+      process.env.ALEPH_RESOURCE_POLICY_JSON = JSON.stringify({ resources: [
+        resource(ownId, 'learner_fixture'), resource(otherId, 'other_fixture'),
+      ], instructors: [] });
+      for (const method of ['GET','PUT','PATCH']) {
+        const base = engine({ path: '/api/memos', route: `${method} /api/memos`, method });
+        for (const id of [ownId, otherId]) {
+          const query = `id=${id}`;
+          const req = { ...base, queryLength: query.length,
+            querySha256: createHash('sha256').update(query).digest('hex') };
+          assert.equal((await decide(req)).decision, id === ownId ? 'allow' : 'deny');
+          assert.equal((await decide({ ...req, subjectId: 'other_fixture' })).decision, id === otherId ? 'allow' : 'deny');
+          assert.equal((await decide({ ...req, path: `/notes/${ownId}`, route: `${method} /notes/:id` })).decision,
+            id === ownId ? 'allow' : 'deny');
+        }
+      }
+    }
   } finally {
     if (previous === undefined) delete process.env.ALEPH_RESOURCE_POLICY_JSON;
     else process.env.ALEPH_RESOURCE_POLICY_JSON = previous;

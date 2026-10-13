@@ -3,7 +3,6 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { decide } from './decider.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
-import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
 
 /**
  * 로컬 파일 및 6~8단계 가상 판정 요청 자기 점검 (심판 판정 아님)
@@ -92,15 +91,16 @@ export async function runAttackChecks(config = {}) {
     ['compound-risk-fixture', suspicious, 'step_up · step_up_required'],
     ['confirmed-risk-fixture', { ...suspicious, requestId: randomUUID(),
       stepUp: { verified: true, authAgeSeconds: 60 } }, 'allow · approved'],
-    ['foreign-region-only-fixture', { ...normal, requestId: randomUUID(),
-      signals: { ...normal.signals, region: 'foreign' } }, 'allow · approved'],
+    ['instructor-notice-fixture', { ...normal, requestId: randomUUID(), subjectId: 'instructor_fixture',
+      method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'allow · approved'],
     ['unknown-source-fixture', { ...normal, requestId: randomUUID(),
       signals: { ...normal.signals, source: 'client' },
       headers: { 'x-aleph-source': 'judge_fixture', 'x-network': 'usual' } },
       'step_up · step_up_required'],
     ['missing-signals-fixture', { ...normal, requestId: randomUUID(), signals: undefined },
       'step_up · step_up_required'],
-    ['unknown-owner-denied-fixture', unknownResourceRequest(), 'deny · resource_forbidden'],
+    ['own-id-query-fixture', { ...normal, path: '/api/memos', route: 'GET /api/memos', queryLength: 7,
+      querySha256: createHash('sha256').update('id=demo').digest('hex') }, 'allow · approved'],
     ['other-owner-denied-fixture', { ...normal, requestId: randomUUID(), subjectId: 'other_fixture' }, 'deny · resource_forbidden'],
     ['student-notice-denied-fixture', { ...normal, requestId: randomUUID(), method: 'PUT', path: '/announcements/notice-demo', route: 'PUT /announcements/:id' }, 'deny · resource_forbidden'],
     ['query-resource-selection-denied-fixture', { ...normal, requestId: randomUUID(), path: '/api/memos', route: 'GET /api/memos',

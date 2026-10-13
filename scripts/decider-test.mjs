@@ -52,7 +52,9 @@ export async function checkDecider({ decide, ruleIds }) {
       { name: 'A 자기 메모 수정', request: { ...normal, method: 'PUT', route: 'PUT /notes/:id' }, decision: 'allow' },
       { name: 'B의 A 메모 읽기 거부', request: { ...normal, subjectId: 'other_fixture' }, decision: 'deny', reasonCode: 'resource_forbidden' },
       { name: '일반 학생의 공지 수정 거부', request: announcement, decision: 'deny', reasonCode: 'resource_forbidden' },
-      { name: '강사도 공지 수정 거부', request: { ...announcement, subjectId: 'instructor_fixture' }, decision: 'deny', reasonCode: 'resource_forbidden' },
+      { name: '서버 등록 강사의 공지 수정 허용', request: { ...announcement, subjectId: 'instructor_fixture' }, decision: 'allow' },
+      { name: '자기 자료 ID 쿼리 허용', request: { ...normal, path: '/api/memos', route: 'GET /api/memos',
+        queryLength: 7, querySha256: createHash('sha256').update('id=demo').digest('hex') }, decision: 'allow' },
     );
   }
   for (const item of checks) {

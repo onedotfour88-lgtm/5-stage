@@ -34,8 +34,9 @@ export function createResourceHandler(type, { getClient = serverClient } = {}) {
       const user = auth?.user;
       if (authError || !user?.id) return fail(401, 'invalid_login');
       if (type === 'announcement' && req.method !== 'GET') {
-        // 이번 정책에서는 공지 쓰기를 누구에게도 제공하지 않습니다.
-        return fail(403, 'announcement_read_only');
+        const { data: role, error } = await db.from('resource_roles')
+          .select('role').eq('user_id', user.id).maybeSingle();
+        if (error || role?.role !== 'instructor') return fail(403, 'instructor_required');
       }
       const table = type === 'memo' ? 'memos' : 'announcements';
       const tag = row => ({ ...row, resourceId: resourceId(type, row.id) });
