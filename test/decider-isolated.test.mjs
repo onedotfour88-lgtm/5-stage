@@ -3,13 +3,15 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
-import { unmappedOwnRequest } from '../scripts/fixture-8.mjs';
+import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
 
 test('decider source alone works without filesystem, imports or Node process globals', () => {
   const { normal, suspicious } = fixtureRequests();
   const cases = [
     { request: normal, expected: 'allow' },
-    { request: unmappedOwnRequest(), expected: 'allow' },
+    { request: unknownResourceRequest(), expected: 'deny' },
+    { request: { ...normal, path: '/notes/other-owner-note' }, expected: 'deny' },
+    { request: { ...normal, classId: 'other_class', path: '/api/memos', route: 'GET /api/memos' }, expected: 'deny' },
     { request: { ...normal, subjectId: 'other_fixture' }, expected: 'deny' },
     { request: { ...normal, deviceRegistered: false }, expected: 'deny' },
     { request: { ...normal, path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' }, expected: 'deny' },

@@ -18,9 +18,8 @@ const fixturePolicy = {
 function authorizeResource(request) {
   // Node 환경의 명시적 서버 정책은 유지합니다. 격리 환경에서는 process도 요구하지 않습니다.
   const policyJson = typeof process === 'object' ? process.env?.ALEPH_RESOURCE_POLICY_JSON : undefined;
-  const explicitPolicy = policyJson !== undefined;
   let policy;
-  try { policy = explicitPolicy ? JSON.parse(policyJson) : fixturePolicy; } catch { return false; }
+  try { policy = policyJson !== undefined ? JSON.parse(policyJson) : fixturePolicy; } catch { return false; }
   if (!policy || !Array.isArray(policy.resources) || !Array.isArray(policy.instructors)
       || typeof request.subjectId !== 'string' || !request.subjectId
       || !/^[a-f0-9]{16}$/u.test(request.deviceId ?? '') || request.service !== 'notes') return false;
@@ -29,7 +28,7 @@ function authorizeResource(request) {
   if (['/api/memos', '/api/notes'].includes(request.path)) {
     if (!['GET', 'POST'].includes(request.method) || request.route !== `${request.method} ${request.path}`) return false;
     const memos = policy.resources.filter(item => sameScope(item) && item.type === 'memo');
-    return memos.length ? memos.some(item => scoped(item) && item.ownerSubjectId === request.subjectId) : !explicitPolicy;
+    return memos.some(item => scoped(item) && item.ownerSubjectId === request.subjectId);
   }
   const match = /^(\/notes|\/api\/notes|\/api\/memos|\/announcements|\/api\/announcements)\/([A-Za-z0-9_-]+)$/u.exec(request.path ?? '');
   if (!match || request.route !== `${request.method} ${match[1]}/:id`
@@ -37,7 +36,8 @@ function authorizeResource(request) {
   if (match[2].length > 128 || ['export', 'download', 'search', 'bulk', 'all', 'admin'].includes(match[2].toLowerCase())) return false;
   const type = match[1].includes('announcements') ? 'announcement' : 'memo';
   const resource = policy.resources.find(item => sameScope(item) && item.type === type && item.id === match[2]);
-  if (!resource) return !explicitPolicy && (type === 'memo' || request.method === 'GET');
+  // 경로 형식만으로 소유권을 추정하지 않습니다. 등록된 자원만 허용합니다.
+  if (!resource) return false;
   if (!scoped(resource)) return false;
   if (type === 'memo') return resource.ownerSubjectId === request.subjectId;
   return request.method === 'GET' || policy.instructors.some(item => scoped(item) && item.subjectId === request.subjectId);

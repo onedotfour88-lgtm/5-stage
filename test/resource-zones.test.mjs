@@ -4,7 +4,7 @@ import { decide } from '../src/decider.mjs';
 import { parseApiResource, resourceId } from '../src/resources.mjs';
 import { createResourceHandler } from '../src/resource-api.mjs';
 import { fixtureRequests } from '../scripts/fixture-7.mjs';
-import { unmappedOwnRequest } from '../scripts/fixture-8.mjs';
+import { unknownResourceRequest } from '../scripts/fixture-8.mjs';
 
 function engine(overrides = {}) { return { ...fixtureRequests().normal, ...overrides }; }
 const notice = { path: '/announcements/notice-demo', route: 'PUT /announcements/:id', method: 'PUT' };
@@ -39,13 +39,18 @@ test('unknown exact route, device, scope, method and encoded/feature paths denie
   assert.equal((await decide(suspicious)).decision, 'step_up');
 });
 
-test('S08_OWN_BROKEN: contract-valid own reads are independent of literal fixture identities', async () => {
+test('S08_OTHER_ZONE_ALLOWED: unknown ownership is denied for reads, writes and lists', async () => {
   for (let index = 0; index < 5; index++) {
-    const request = unmappedOwnRequest();
+    const request = unknownResourceRequest();
     for (const method of ['GET', 'PUT', 'PATCH']) {
-      assert.equal((await decide({ ...request, method, route: `${method} /notes/:id` })).decision, 'allow');
+      assert.equal((await decide({ ...request, method, route: `${method} /notes/:id` })).decision, 'deny');
     }
-    assert.equal((await decide({ ...request, signals: { source: 'none', region: 'unknown', network: 'unknown', hour: null } })).decision, 'allow');
+    assert.equal((await decide({ ...request, signals: { source: 'none', region: 'unknown', network: 'unknown', hour: null } })).decision, 'deny');
+    for (const path of ['/api/memos', '/api/notes']) {
+      assert.equal((await decide({ ...request, path, route: `GET ${path}` })).decision, 'deny');
+    }
+    assert.equal((await decide(engine({ path: request.path }))).decision, 'deny');
+    assert.equal((await decide({ ...request, subjectId: 'other_virtual' })).decision, 'deny');
     assert.equal((await decide({ ...request, deviceRegistered: false })).decision, 'deny');
     assert.equal((await decide({ ...request, path: '/notes/export' })).decision, 'deny');
     assert.equal((await decide({ ...request, path: '/announcements/notice-own', method: 'PUT', route: 'PUT /announcements/:id' })).decision, 'deny');
@@ -151,6 +156,19 @@ test('API rejects unauthenticated, invalid sessions and guessed feature paths', 
 test('production policy is server supplied and bound to exact pseudonym, device and scope', async () => {
   const previous = process.env.ALEPH_RESOURCE_POLICY_JSON;
   try {
+    const generated = unknownResourceRequest();
+    const id = generated.path.split('/').at(-1);
+    process.env.ALEPH_RESOURCE_POLICY_JSON = JSON.stringify({ resources: [
+      { type: 'memo', id, classId: generated.classId, projectId: generated.projectId,
+        ownerSubjectId: generated.subjectId, deviceIds: [generated.deviceId] },
+    ], instructors: [] });
+    for (const method of ['GET', 'PUT', 'PATCH']) {
+      assert.equal((await decide({ ...generated, method, route: `${method} /notes/:id` })).decision, 'allow');
+    }
+    for (const overrides of [{ subjectId: 'other_virtual' }, { deviceId: 'c'.repeat(16) },
+      { classId: 'other_class' }, { projectId: 'other_project' }, { path: '/notes/other-owner-note' }]) {
+      assert.equal((await decide({ ...generated, ...overrides })).decision, 'deny');
+    }
     process.env.ALEPH_RESOURCE_POLICY_JSON = JSON.stringify({ resources: [
       { type: 'memo', id: '1', classId: 'class_server', projectId: 'project_server', ownerSubjectId: 'subject_server', deviceIds: ['b'.repeat(16)] },
     ], instructors: [] });
