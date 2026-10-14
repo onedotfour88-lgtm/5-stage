@@ -10,3 +10,4 @@ public/aleph.json
 /.recovery-test/
 /xdr/known-cve/deny-rules.json
 /xdr/alerts.log
+/xdr/persistence/deny-rules.json

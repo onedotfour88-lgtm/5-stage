@@ -345,3 +345,13 @@ known-cve는 CVE-2021-44228 원격 JNDI 요청과 MITRE ATT&CK T1190을 참고�
 3208b429dc41은 요청 문자열만 검사해 Wazuh의 T1190 검토 경보를 record로 내렸습니다. 신뢰된 Wazuh 입력의 rule.mitre에 T1190이 있고 숫자 rule.level이 5 이상이면 최소 alert(0.55)로 분류합니다. 이는 이 경보 묶음의 검토 정책이며 MITRE가 정한 차단 임계값이 아닙니다. 완전한 원격 JNDI 구문만 기존 block 조건을 유지합니다. 클라이언트가 보낸 rule 메타데이터를 신뢰된 Wazuh 입력으로 전달하면 안 됩니다.
 
 재실행 결과 block 8 / alert 8 / record 8, 정상 차단 0. 테스트는 경보별 세 분류, 알림 로그 8행, 정상 요청 통과, 만료 및 공유 주소 보호를 확인합니다. 앞 절의 alert 0 / record 16은 수정 전 기록입니다. 확인 명령: node --test test/known-cve.test.mjs 및 npm run xdr:run -- known-cve. 운영 엔진 장착과 공식 심판 재판정은 별도입니다.
+
+## 보너스 xdr-04 저장점
+
+persistence 모듈은 신뢰된 Wazuh 경보의 T1543/T1053 분류, 수준, 서명 부재·목록 이탈 설명, Temp/Startup 실행 경로를 함께 검사합니다. 수준만 높다고 차단하지 않습니다. 서명 미확인은 서명 없음과 구별합니다. 시작 폴더 근거는 T1547.001을 추가했습니다. 평소 목록은 이 저장소에서 만들어 추측하지 않고 신뢰된 경보의 목록 이탈 결과를 사용합니다. 확신도는 패턴 강도 정책이며 통계적 확률이 아닙니다.
+
+확인 순서: node xdr/persistence/read-alerts.mjs → node --test test/persistence.test.mjs → npm run xdr:run -- persistence. 읽기 출력은 24행이며 다섯 필드만 가려 반환합니다. decide.mjs는 패턴 상수를 포함하고 import/파일/네트워크 접근 없이 판단합니다. 두 차례 실행과 격리 실행에서 block 8 / alert 8 / record 8, 정상 차단 0을 확인했습니다. 알림 로그 8행, 임시 규칙 만료, 공유 주소 보호 및 정상 요청의 기존 판정기 전달을 시험했습니다.
+
+respond.mjs는 15분 만료·근거 경보 번호가 있는 별도 deny-rules.json을 만들며 알림은 xdr/alerts.log에만 추가합니다. withPersistence(baseDecide,rules)는 신뢰된 진입부의 sourceAddress로 추가 검사하고 나머지는 기존 판정기로 전달합니다. 주소를 해당 PC에 연결하는 검증은 운영 진입부 책임입니다. 같은 주소에 정상 경보가 있으면 주소 단위 격리는 생략합니다. 이 연결은 로컬 시험이며 실제 PC/운영 엔진 격리는 미실행입니다. 제공 엔진은 ALEPH SDP 엔진이며 기존 RULE_IDS와 응답 계약은 변경하지 않습니다.
+
+실행은 자동 종료합니다. 연결 중지는 wrapper 해제, 복구는 이 모듈의 이전 커밋으로 되돌리며 기존 정책은 유지합니다. 임시 거부 규칙과 실행 로그는 이번 커밋에 포함하지 않습니다. 설정 단계 12와 기존 배포·발급자·원본 API 설정을 보존합니다.

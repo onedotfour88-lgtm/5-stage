@@ -1,0 +1,26 @@
+[
+  {
+    "name": "unsigned_service",
+    "condition": "T1543, level>=10, explicit unsigned service registration/change",
+    "confidence": 0.95,
+    "evidence": "MITRE T1543 system process creation/modification https://attack.mitre.org/techniques/T1543/"
+  },
+  {
+    "name": "unfamiliar_task",
+    "condition": "T1053, level>=10, executable in Temp and unfamiliar/scheduled task context",
+    "confidence": 0.92,
+    "evidence": "MITRE T1053 recurring execution through scheduled tasks https://attack.mitre.org/techniques/T1053/"
+  },
+  {
+    "name": "unexpected_autostart",
+    "condition": "level>=10, explicit absence from baseline plus Startup executable or service Temp executable",
+    "confidence": 0.9,
+    "evidence": "Startup folder is T1547.001; service persistence T1543 https://attack.mitre.org/techniques/T1547/001/"
+  },
+  {
+    "name": "persistence_review",
+    "condition": "Trusted Wazuh T1543/T1053/T1547.001 alert with level>=5, insufficient strong evidence",
+    "confidence": 0.6,
+    "evidence": "Review tagged persistence changes without treating unknown signatures as unsigned; local triage policy based on T1543/T1053"
+  }
+]
