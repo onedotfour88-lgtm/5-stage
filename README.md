@@ -294,7 +294,7 @@
 
 ## 현재 공통 점검 API와 제출 (가이드 적용)
 
-`src/attack-check.mjs`의 collectChecks는 `/api/checks`와 제출 runner가 공유합니다. GET 4건을 각각 한 번만 전송하고 쓰기 2건은 요청 없이 not_run으로 남깁니다. observed는 HTTP 상태와 실제 JSON 검증값만 기록합니다. alephEvidence에는 caseId(결과의 attackId와 같은 값)와 고유 requestKey를 넣습니다. 심판이 이 메타데이터를 수집하는지는 재판정이 필요합니다.
+`src/attack-check.mjs`의 collectChecks는 `/api/checks`와 제출 runner가 공유합니다. GET 4건을 각각 한 번만 전송하고 쓰기 2건은 요청 없이 not_run으로 남깁니다. observed는 실제 HTTP 상태만 기록합니다. 빈 배열 여부는 별도의 로컬 결과 판정에만 사용합니다. alephEvidence에는 caseId(결과의 attackId와 같은 값)와 고유 requestKey를 넣습니다. 심판이 이 메타데이터를 수집하는지는 재판정이 필요합니다.
 
 `/api/checks`는 최상위 total/blocked/passed/failed/notRun과 attempts를 반환합니다. passed는 정상 요청의 기대 일치, blocked는 금지 GET의 실제 401 거부입니다. 두 값은 서로 합치지 않습니다. 네트워크 미수신은 not_run, 수신한 503이나 예상 밖 결과는 failed입니다. 공식 41종 수치 객체는 제거했습니다.
 
@@ -324,3 +324,9 @@
 5. JSON의 각 실측 attackId에 대해 trace의 attackId가 한 건, HTTP 상태가 observed와 같은지 대조합니다. 요청 없는 쓰기 두 행은 observed=not_run이어야 합니다. 네 요청을 모두 정상 수신한 경우에만 총 6행 중 실측 4행입니다. 실패하거나 미수신이면 그 실행 결과를 그대로 사용합니다.
 6. `npm run operations:verify`는 1~11단계 정상/금지·기대·실제 API 결과·요청 ID·확인 시각을 artifacts/operations-verification.html 한 표로 만듭니다. 로그인 자격 증명이 없는 보호 시험은 미실행입니다. 이 별도 실행의 ID를 제출 묶음 요청 ID로 복사하지 않습니다.
 7. 배포 후 탈환 작전실에서 가린 서버 응답을 펼쳐 동일 snapshotId의 행·집계를 비교합니다. 공개 정상 GET은 200, 무인증 메모 GET은 401이 기대값이며 메모 본문은 보관하지 않습니다. 재제출 전에는 심판의 실행 기록 대조 통과를 확정하지 않습니다.
+
+## 12단계 후속 수정 — s02-public-data 관측 표현
+
+6116ce205b4e 재판정에서는 요청 연결 오류가 없어지고 s02-public-data의 관측 불가 값만 지적됐습니다. 빈 배열 검사를 `jsonReady=true`로 표현한 것이 문제 후보입니다. [사용자가 제공한 참고 코드](https://github.com/ginye28/choi-bujang-secret-vault/blob/677da0fc5277cc81a4935f2318ce21cc3f61b7e6/src/attack-check.mjs)는 observed에 HTTP 상태와 method만 기록합니다. 이를 참고해 우리 observed에서는 jsonReady를 제거하고 HTTP 상태만 기록합니다. 본문이 빈 배열인지 확인하는 기존 검사는 유지하며, 비어 있지 않거나 JSON 파싱이 실패하면 result=failed입니다. 본문은 저장하거나 출력하지 않습니다.
+
+확인: `npm run test:bundle`은 빈 배열·비어 있지 않은 배열·다른 JSON 형식·깨진 JSON을 구별합니다. `npm run test:12`로 화면과 가린 서버 기록 집계를 확인합니다. 배포 작전실의 가린 응답에서 s02-public-data.observed가 HTTP 200인지 확인합니다. 정상 공개 요청은 HTTP 200, 무인증 메모는 HTTP 401, 쓰기 두 건은 not_run이 기대값이며 공식 심판 결과는 재제출로 확인합니다.

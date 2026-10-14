@@ -17,7 +17,15 @@ test('standalone runner sends one GET per measured attackId with unique evidence
  for(const request of requests)assert.deepEqual(Object.keys(request.alephEvidence).sort(),['caseId','requestKey']);
  for(const row of checks){const trace=requests.filter(r=>r.alephEvidence.caseId===row.attackId);assert.equal(trace.length,row.observed==='not_run'?0:1);}
  assert.ok(requests.every(r=>r.method==='GET'));
- assert.equal(checks[0].observed,'HTTP 200');assert.equal(checks[1].observed,'HTTP 200; jsonReady=true');
+ assert.equal(checks[0].observed,'HTTP 200');assert.equal(checks[1].observed,'HTTP 200');
+});
+test('public data observations contain only HTTP facts while invalid content still fails',async()=>{
+ for(const [json,result] of [[async()=>[],'passed'],[async()=>[{id:'synthetic'}],'failed'],[async()=>({}),'failed'],[async()=>{throw new SyntaxError('invalid JSON')},'failed']]){
+  const report=await collectChecks({publicAppUrl:'https://5-stage.vercel.app/'},async url=>({...await mock(url),json}));
+  const row=report.attempts.find(r=>r.attackId==='s02-public-data');
+  assert.equal(row.observed,'HTTP 200');
+  assert.equal(row.result,result);
+ }
 });
 test('summary partitions actual results and never includes official assault totals',async()=>{
  const report=await collectChecks({publicAppUrl:'https://5-stage.vercel.app/'},mock);

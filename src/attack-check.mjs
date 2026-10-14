@@ -1,7 +1,7 @@
 // Shared read-only checks. Standalone so the submission sandbox needs no imports.
 export const CHECKS = [
   {attackId:'s01-screen',stage:1,path:'/',expected:'HTTP 200',status:200,kind:'normal'},
-  {attackId:'s02-public-data',stage:2,path:'/data.json',expected:'HTTP 200; jsonReady=true (empty public data)',status:200,kind:'normal',empty:true},
+  {attackId:'s02-public-data',stage:2,path:'/data.json',expected:'HTTP 200 (public data must be an empty JSON array)',status:200,kind:'normal',empty:true},
   {attackId:'s03-no-login',stage:3,path:'/api/memos/1',expected:'HTTP 401 (unauthenticated read rejected)',status:401,kind:'forbidden'},
   {attackId:'s04-other-memo-unauth',stage:4,path:'/api/memos/2',expected:'HTTP 401 (unauthenticated read rejected; not an authenticated ownership test)',status:401,kind:'forbidden'},
   {attackId:'s10-restore-write',stage:10,expected:'POST recovery requires a separate authorized test',kind:'forbidden'},
@@ -31,8 +31,8 @@ export async function collectChecks(config={},fetcher=fetch){
         row.requestId=/^[a-f0-9-]{36}$/i.test(id??'')?id:null;
         row.observed=`HTTP ${response.status}`;row.result='failed';
         let ready=true;
-        if(check.empty){try{const body=await response.json();ready=Array.isArray(body)&&body.length===0;}catch{ready=false;}
-          row.observed+=`; jsonReady=${ready}`;}
+        // Keep local content validation, but do not label it as judge-observed jsonReady.
+        if(check.empty){try{const body=await response.json();ready=Array.isArray(body)&&body.length===0;}catch{ready=false;}}
         if(response.status===check.status&&ready)row.result=check.kind==='forbidden'?'blocked':'passed';
       }catch{if(row.checkedAt===null)row.observed='not_run';}
     }
