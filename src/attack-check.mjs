@@ -23,7 +23,7 @@ export async function collectChecks(config={},fetcher=fetch){
         });
       try{
         const response=await fetcher('https://5-stage.vercel.app'+check.path,{method:'GET',redirect:'error',cache:'no-store',
-          alephEvidence:{attackId:check.attackId,requestKey},attackId:check.attackId,
+          alephEvidence:{caseId:check.attackId,requestKey},attackId:check.attackId,
           headers:{'X-Aleph-Attack-Id':check.attackId},
           ...(typeof AbortSignal!=='undefined'?{signal:AbortSignal.timeout(10000)}:{})});
         row.requestKey=requestKey;row.checkedAt=new Date().toISOString();row.source='live_http';

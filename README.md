@@ -294,7 +294,7 @@
 
 ## 현재 공통 점검 API와 제출 (가이드 적용)
 
-`src/attack-check.mjs`의 collectChecks는 `/api/checks`와 제출 runner가 공유합니다. GET 4건을 각각 한 번만 전송하고 쓰기 2건은 요청 없이 not_run으로 남깁니다. observed는 HTTP 상태와 실제 JSON 검증값만 기록합니다. alephEvidence에는 attackId와 고유 requestKey를 넣습니다. 심판이 이 메타데이터를 수집하는지는 재판정이 필요합니다.
+`src/attack-check.mjs`의 collectChecks는 `/api/checks`와 제출 runner가 공유합니다. GET 4건을 각각 한 번만 전송하고 쓰기 2건은 요청 없이 not_run으로 남깁니다. observed는 HTTP 상태와 실제 JSON 검증값만 기록합니다. alephEvidence에는 caseId(결과의 attackId와 같은 값)와 고유 requestKey를 넣습니다. 심판이 이 메타데이터를 수집하는지는 재판정이 필요합니다.
 
 `/api/checks`는 최상위 total/blocked/passed/failed/notRun과 attempts를 반환합니다. passed는 정상 요청의 기대 일치, blocked는 금지 GET의 실제 401 거부입니다. 두 값은 서로 합치지 않습니다. 네트워크 미수신은 not_run, 수신한 503이나 예상 밖 결과는 failed입니다. 공식 41종 수치 객체는 제거했습니다.
 
@@ -303,3 +303,24 @@
 공개 작전실은 `/api/checks`를 읽고 서버 응답 그대로 표·숫자·가린 JSON을 표시합니다. 로그인 후 1~11단계 상세 표와 기존 학생 판정기/탐지 규칙/복구는 유지합니다. 공개 무인증 메모 2건은 인증된 타인 소유권 시험을 대체하지 않습니다. 공식 제공 엔진은 ALEPH SDP 엔진이며 운영 집행 결과를 가상 점검으로 채우지 않습니다.
 
 재현: npm run test:bundle → npm run test:12 → npm run build → 깨끗한 커밋에서 npm run bundle. 배포 후 `/operations.html`과 `/api/checks`의 같은 snapshotId 기록을 대조합니다. 서로 다른 실행은 requestKey와 checkedAt이 다르며 동일 시점 결과로 주장하지 않습니다. 아래 수치는 예측값으로 제출하지 말고 실제 실행 결과를 사용합니다.
+
+## 12단계 저장점 — 실행 기록 연결 수정 (2026-10-14)
+
+검사 대상은 이 저장점의 `git rev-parse HEAD`입니다. 이전 제출 df76203c7b41은 네 GET 결과에 대응하는 attackId 기록이 없다는 판정을 받았습니다. 원인 후보는 추적 필드명, 격리 환경의 추적 지원 차이, 실제 요청 미수신입니다. 공개 응답과 로컬 전송은 확인되지만 기존 테스트가 잘못된 필드명도 허용했습니다. 가장 직접적인 차이인 `alephEvidence.attackId`를 `alephEvidence.caseId`로 수정했습니다. 결과 행의 `attackId`와 요청의 `caseId`가 정확히 같아야 합니다. UUID requestKey는 각 요청을 구분합니다.
+
+첨부 통과 사례는 형식 참고 자료이며 공식 계약이나 우리 저장소의 통과 증거가 아닙니다. 필드명은 다음 공개 코드 두 곳과 대조했습니다. 해당 저장소의 점수나 통과 여부는 확인하지 않았으며 점검 목록·결과 숫자는 복사하지 않았습니다.
+
+- [stulss 요청 코드](https://github.com/stulss/choi-bujang-secret-vault/blob/baf032461a32709371266ba85f32aafd9866ee6d/src/attack-check.mjs)
+- [gyeonggumun 요청 코드](https://github.com/gyeonggumun/aleph-defense-starter/blob/51028424705196ca26b1438ebbd6159f1165eba5/src/attack-check.mjs)
+
+학생 판정기·탐지 규칙·접속 앱·자료실의 설치/실행/중지/복구는 문서 맨 위 절차를 따릅니다. 제공 엔진 출처는 ALEPH SDP 엔진입니다. 이번 수정은 요청 추적과 검증에만 적용하며 판정·자료 권한·탐지·회수·복구 로직을 바꾸지 않습니다.
+
+재현 순서:
+
+1. 이 커밋을 새 폴더에 받아 `npm install`을 실행합니다. 별도 깨끗한 체크아웃에서 실제 설치 성공(10개 패키지, 취약점 0)을 확인했습니다. 설정 step은 12입니다.
+2. `npm run decider:test`, `npm run test:8`, `npm run test:12`, `npm run test:bundle`, `npm run build`를 실행합니다. 판정기 11개 가상 사례, test:8 26개, test:12 13개, test:bundle 3개를 확인했습니다. 이는 실제 엔진 총공세 결과가 아닙니다.
+3. 공개 가능한 작업 설명을 무시 파일 `bundle-notes.json`의 explanation에 적고 깨끗한 체크아웃에서 `npm run bundle`을 실행합니다. GitHub origin은 aleph.config.json의 repoUrl과 같아야 합니다. JSON의 commit이 검사 대상 커밋입니다.
+4. 전송 기록까지 남기려면 같은 커밋에서 `node --import ./test/bundle-sandbox-setup.mjs scripts/bundle.mjs`를 실행합니다. artifacts/submission.json과 artifacts/bundle-request-trace.json이 같은 실행에서 만들어집니다. 로컬 추적기는 caseId·UUID·중복·GET/HEAD·24건 상한을 검사하며 실제 심판 구현을 대신하지 않습니다.
+5. JSON의 각 실측 attackId에 대해 trace의 attackId가 한 건, HTTP 상태가 observed와 같은지 대조합니다. 요청 없는 쓰기 두 행은 observed=not_run이어야 합니다. 네 요청을 모두 정상 수신한 경우에만 총 6행 중 실측 4행입니다. 실패하거나 미수신이면 그 실행 결과를 그대로 사용합니다.
+6. `npm run operations:verify`는 1~11단계 정상/금지·기대·실제 API 결과·요청 ID·확인 시각을 artifacts/operations-verification.html 한 표로 만듭니다. 로그인 자격 증명이 없는 보호 시험은 미실행입니다. 이 별도 실행의 ID를 제출 묶음 요청 ID로 복사하지 않습니다.
+7. 배포 후 탈환 작전실에서 가린 서버 응답을 펼쳐 동일 snapshotId의 행·집계를 비교합니다. 공개 정상 GET은 200, 무인증 메모 GET은 401이 기대값이며 메모 본문은 보관하지 않습니다. 재제출 전에는 심판의 실행 기록 대조 통과를 확정하지 않습니다.
