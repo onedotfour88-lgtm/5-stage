@@ -12,3 +12,4 @@ public/aleph.json
 /xdr/alerts.log
 /xdr/persistence/deny-rules.json
 /xdr/privilege/deny-rules.json
+/xdr/exfiltration/deny-rules.json
