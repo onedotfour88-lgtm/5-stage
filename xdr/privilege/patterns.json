@@ -1,0 +1,20 @@
+[
+  {
+    "name": "admin_group_escalation",
+    "condition": "Trusted T1078, level>=10, administrators group and explicit addition/re-entry",
+    "confidence": 0.95,
+    "evidence": "T1078 valid account abuse; group change is corroborating context, not proof alone https://attack.mitre.org/techniques/T1078/"
+  },
+  {
+    "name": "unusual_elevated_session",
+    "condition": "Trusted T1068/T1078, level>=10, admin command/session plus new elevation, unfamiliar origin or another account privilege",
+    "confidence": 0.92,
+    "evidence": "T1068 escalation and T1078 account abuse; local correlation policy https://attack.mitre.org/techniques/T1068/"
+  },
+  {
+    "name": "privilege_review",
+    "condition": "Trusted T1068/T1078 level>=5 without strong corroboration",
+    "confidence": 0.6,
+    "evidence": "Review uncertain privilege activity; ATT&CK tags and off-hours alone do not prove compromise https://attack.mitre.org/techniques/T1078/"
+  }
+]

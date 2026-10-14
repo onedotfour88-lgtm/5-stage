@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-if(process.argv[2]==='known-cve'){ await import('./known-cve-run.mjs'); } else if(process.argv[2]==='persistence'){ await import('./persistence-run.mjs'); } else {
+if(process.argv[2]==='known-cve'){ await import('./known-cve-run.mjs'); } else if(process.argv[2]==='persistence'){ await import('./persistence-run.mjs'); } else if(process.argv[2]==='privilege'){ await import('./privilege-run.mjs'); } else {
 
 const moduleName = process.argv[2] || 'web-injection';
 const fixturePath = path.resolve(`xdr/fixtures/${moduleName}.json`);
