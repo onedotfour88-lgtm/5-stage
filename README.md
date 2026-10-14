@@ -330,3 +330,12 @@
 6116ce205b4e 재판정에서는 요청 연결 오류가 없어지고 s02-public-data의 관측 불가 값만 지적됐습니다. 빈 배열 검사를 `jsonReady=true`로 표현한 것이 문제 후보입니다. [사용자가 제공한 참고 코드](https://github.com/ginye28/choi-bujang-secret-vault/blob/677da0fc5277cc81a4935f2318ce21cc3f61b7e6/src/attack-check.mjs)는 observed에 HTTP 상태와 method만 기록합니다. 이를 참고해 우리 observed에서는 jsonReady를 제거하고 HTTP 상태만 기록합니다. 본문이 빈 배열인지 확인하는 기존 검사는 유지하며, 비어 있지 않거나 JSON 파싱이 실패하면 result=failed입니다. 본문은 저장하거나 출력하지 않습니다.
 
 확인: `npm run test:bundle`은 빈 배열·비어 있지 않은 배열·다른 JSON 형식·깨진 JSON을 구별합니다. `npm run test:12`로 화면과 가린 서버 기록 집계를 확인합니다. 배포 작전실의 가린 응답에서 s02-public-data.observed가 HTTP 200인지 확인합니다. 정상 공개 요청은 HTTP 200, 무인증 메모는 HTTP 401, 쓰기 두 건은 not_run이 기대값이며 공식 심판 결과는 재제출로 확인합니다.
+## 보너스 xdr-03 저장점
+
+known-cve는 CVE-2021-44228 원격 JNDI 요청과 MITRE ATT&CK T1190을 참고한 학생 탐지 모듈입니다. 완전한 원격 조회 구문은 block, 불완전 구문/명시적 스캐너 흔적은 alert, 단순 CVE 단어·일반 요청은 record입니다. 확신도는 통계적 확률이 아닌 패턴 일치 점수입니다.
+
+`node xdr/known-cve/read-alerts.mjs`는 원본을 수정하지 않고 다섯 필드만 가려 출력합니다. `decide.mjs`는 외부 의존성이 없습니다. `npm run xdr:run -- known-cve`는 result.json과 15분 만료 deny-rules.json을 갱신합니다. 알림은 xdr/alerts.log에 기록합니다. 원본 경보 본문은 결과에 넣지 않습니다.
+
+`respond.mjs`의 withKnownCve(baseDecide, rules)는 신뢰된 진입부가 전달한 sourceAddress로 임시 규칙을 검사하고 비차단 요청은 기존 판정기로 전달합니다. 반환 action은 진입부용이며 ALEPH decision 응답 계약을 대체하지 않습니다. 제공 엔진은 ALEPH SDP 엔진입니다. 현재 운영 진입부 장착은 미실행이며 로컬 재생 연결만 검증했습니다. 정상과 공격이 같은 주소를 공유하면 주소 차단을 만들지 않습니다.
+
+재현: `node --test test/known-cve.test.mjs` 후 `npm run xdr:run -- known-cve`. 두 차례 실행 결과 block 8, alert 0, record 16. 정상 차단 0. 별도 애매한 입력은 alert 확인. 중지는 실행 자동 종료, 연결 해제는 해당 wrapper 제거이며 기존 판정 규칙은 유지합니다. 복구는 이 모듈만 이전 커밋으로 되돌립니다. 런타임 로그와 임시 거부 규칙은 Git에 넣지 않습니다.

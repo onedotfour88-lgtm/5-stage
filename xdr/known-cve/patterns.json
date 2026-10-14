@@ -1,0 +1,20 @@
+[
+  {
+    "name": "remote_jndi",
+    "condition": "\\$\\{\\s*jndi\\s*:\\s*(?:ldap|ldaps|rmi|dns)://[^\\s{}]+\\}",
+    "confidence": 0.95,
+    "evidence": "CVE-2021-44228: attacker-controlled remote JNDI lookup; https://logging.apache.org/log4j/2.x/security.html"
+  },
+  {
+    "name": "partial_jndi",
+    "condition": "\\$\\{\\s*jndi\\s*:",
+    "confidence": 0.65,
+    "evidence": "Incomplete JNDI lookup warrants review, not confirmed exploitation; CVE-2021-44228"
+  },
+  {
+    "name": "cve_scanner",
+    "condition": "log4j[-_ ]?(?:scan|scanner)|log4shell[-_ ]?(?:scan|scanner)",
+    "confidence": 0.55,
+    "evidence": "MITRE ATT&CK T1190 reconnaissance indicator only; https://attack.mitre.org/techniques/T1190/"
+  }
+]

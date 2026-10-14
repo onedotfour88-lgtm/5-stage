@@ -8,3 +8,5 @@ public/aleph.json
 .vercel
 
 /.recovery-test/
+/xdr/known-cve/deny-rules.json
+/xdr/alerts.log

@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+if(process.argv[2]==='known-cve'){ await import('./known-cve-run.mjs'); } else {
+
 const moduleName = process.argv[2] || 'web-injection';
 const fixturePath = path.resolve(`xdr/fixtures/${moduleName}.json`);
 const outputPath = path.resolve(`xdr/${moduleName}/result.json`);
@@ -52,3 +54,4 @@ fs.writeFileSync(outputPath, JSON.stringify(resultData, null, 2), 'utf-8');
 console.log(`xdr/${moduleName}/result.json 생성 완료`);
 console.log(`counts: block=${counts.block}, alert=${counts.alert}, record=${counts.record}`);
 console.log(`normalBlocked: ${normalBlocked}`);
+}
