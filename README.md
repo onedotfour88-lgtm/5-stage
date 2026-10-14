@@ -339,3 +339,9 @@ known-cve는 CVE-2021-44228 원격 JNDI 요청과 MITRE ATT&CK T1190을 참고�
 `respond.mjs`의 withKnownCve(baseDecide, rules)는 신뢰된 진입부가 전달한 sourceAddress로 임시 규칙을 검사하고 비차단 요청은 기존 판정기로 전달합니다. 반환 action은 진입부용이며 ALEPH decision 응답 계약을 대체하지 않습니다. 제공 엔진은 ALEPH SDP 엔진입니다. 현재 운영 진입부 장착은 미실행이며 로컬 재생 연결만 검증했습니다. 정상과 공격이 같은 주소를 공유하면 주소 차단을 만들지 않습니다.
 
 재현: `node --test test/known-cve.test.mjs` 후 `npm run xdr:run -- known-cve`. 두 차례 실행 결과 block 8, alert 0, record 16. 정상 차단 0. 별도 애매한 입력은 alert 확인. 중지는 실행 자동 종료, 연결 해제는 해당 wrapper 제거이며 기존 판정 규칙은 유지합니다. 복구는 이 모듈만 이전 커밋으로 되돌립니다. 런타임 로그와 임시 거부 규칙은 Git에 넣지 않습니다.
+
+### xdr-03 알림 분류 보완
+
+3208b429dc41은 요청 문자열만 검사해 Wazuh의 T1190 검토 경보를 record로 내렸습니다. 신뢰된 Wazuh 입력의 rule.mitre에 T1190이 있고 숫자 rule.level이 5 이상이면 최소 alert(0.55)로 분류합니다. 이는 이 경보 묶음의 검토 정책이며 MITRE가 정한 차단 임계값이 아닙니다. 완전한 원격 JNDI 구문만 기존 block 조건을 유지합니다. 클라이언트가 보낸 rule 메타데이터를 신뢰된 Wazuh 입력으로 전달하면 안 됩니다.
+
+재실행 결과 block 8 / alert 8 / record 8, 정상 차단 0. 테스트는 경보별 세 분류, 알림 로그 8행, 정상 요청 통과, 만료 및 공유 주소 보호를 확인합니다. 앞 절의 alert 0 / record 16은 수정 전 기록입니다. 확인 명령: node --test test/known-cve.test.mjs 및 npm run xdr:run -- known-cve. 운영 엔진 장착과 공식 심판 재판정은 별도입니다.

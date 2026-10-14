@@ -11,12 +11,17 @@ test('fixture, safe reader, response and expiry',async()=>{
  assert.equal((await readAlerts()).length,alerts.length);
  assert.equal(redact('token=secret-value'),'[REDACTED]');
  assert.equal(alerts.filter(a=>decide(a).action==='block').length,8);
- for(const a of alerts.slice(8))assert.notEqual(decide(a).action,'block');
+ for(const a of alerts.slice(8,16))assert.equal(decide(a).action,'alert',a.id);
+ for(const a of alerts.slice(16))assert.equal(decide(a).action,'record',a.id);
+ assert.equal(decide({rule:{level:12,mitre:[]},data:{url:'/health'}}).action,'record');
+ assert.equal(decide({data:{url:'/search?q=CVE-2021-44228'}}).action,'record');
  assert.equal(decide({data:{url:'${jndi:'}}).action,'alert');
  assert.equal(decide({data:{useragent:'log4j-scanner'}}).action,'alert');
  const root=await mkdtemp(join(tmpdir(),'known-cve-'));
  try{
  const rules=await respond(alerts,{root,now:1000});
+ const logged=(await readFile(join(root,'xdr','alerts.log'),'utf8')).trim().split('\n').map(JSON.parse);
+ assert.deepEqual(logged.map(x=>x.alertId),alerts.slice(8,16).map(x=>x.id));
  const wrapped=withKnownCve(async()=>({action:'allow'}),rules);
  for(const a of alerts)assert.equal((await wrapped({}, {sourceAddress:a.data.srcip,now:1001})).action,decide(a).action==='block'?'block':'allow');
  assert.equal((await wrapped({}, {sourceAddress:alerts[0].data.srcip,now:1000000})).action,'allow');

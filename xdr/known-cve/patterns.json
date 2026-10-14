@@ -16,5 +16,11 @@
     "condition": "log4j[-_ ]?(?:scan|scanner)|log4shell[-_ ]?(?:scan|scanner)",
     "confidence": 0.55,
     "evidence": "MITRE ATT&CK T1190 reconnaissance indicator only; https://attack.mitre.org/techniques/T1190/"
+  },
+  {
+    "name": "wazuh_t1190_review",
+    "condition": "Trusted Wazuh rule.mitre includes T1190 and numeric rule.level >= 5; without a complete exploit, review only",
+    "confidence": 0.55,
+    "evidence": "Fixture Wazuh T1190 alerts carry weak CVE context in rule metadata even when request payload is abbreviated; T1190 classification warrants triage, not proof of exploitation."
   }
 ]
