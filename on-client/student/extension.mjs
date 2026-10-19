@@ -38,11 +38,11 @@ export function createStudentView() {
       const deviceFields = device => [
         ['기기 이름', value(device?.label)],
         ['기기 ID', value(device?.id)],
-        ['기기 상태', deviceStatus(device?.status)],
+        ['기기 상태', `${deviceStatus(device?.status)} (${value(device?.status)})`],
       ];
       const sessionFields = session => [
         ['세션 ID', value(session?.id)],
-        ['세션 상태', sessionStatus(session?.status)],
+        ['세션 상태', `${sessionStatus(session?.status)} (${value(session?.status)})`],
       ];
       const section = (title, resource, renderData) => {
         const box = document.createElement('section');
