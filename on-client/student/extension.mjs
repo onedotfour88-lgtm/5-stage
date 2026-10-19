@@ -440,7 +440,7 @@ export function createStudentView() {
       const guidance = {
         ON_AI_PROVISIONING_PENDING: '권한 준비 중입니다. 담당자에게 계정 연결과 앱 권한 확인을 요청하세요. 학생 코드 수정으로 권한을 발급할 수 없습니다.',
         WB_CLCO_AUTH_REQUIRED: '인증 실패입니다. 계정 연결을 다시 확인하고 담당자에게 확인을 요청하세요.',
-        WB_CLCO_ACCESS_BLOCKED: '접근 제한입니다. 담당자에게 앱 이용 권한 확인을 요청하세요.',
+        WB_CLCO_ACCESS_BLOCKED: '접근 제한입니다. 계정 연결을 다시 확인하고 담당자에게 앱 이용 권한 확인을 요청하세요.',
         WB_CLCO_COHORT_BUDGET_EXHAUSTED: '반 사용량이 소진됐습니다. 담당자에게 확인하세요.',
         WB_CLCO_LIMIT_REACHED: '이용 한도에 도달했습니다. 담당자에게 확인하세요.',
         WB_CLCO_SESSION_CLOSED: '현재 이용 시간이 아닙니다. 이용 시간을 확인하세요.',
@@ -491,6 +491,13 @@ export function createStudentView() {
       else if (explanation.status === 'loading') add('사건 설명 요청 중입니다. 아직 결과가 없습니다.');
       else if (explanation.status === 'error') {
         add(`사건 설명 요청 실패 · 코드: ${safe(explanation.error?.code)} · 메시지: ${safe(explanation.error?.message)}`);
+        if (explanation.error?.code === 'ON_AI_PROVISIONING_PENDING') {
+          add('사건 설명 권한 준비 중입니다. 학생 코드의 불합격을 뜻하지 않습니다. 담당자에게 계정 연결과 앱의 ai.explain 권한 확인을 요청하세요.');
+        } else if (['WB_CLCO_AUTH_REQUIRED', 'WB_CLCO_ACCESS_BLOCKED'].includes(explanation.error?.code)) {
+          add('계정 연결과 AI 앱 승인 상태를 다시 확인하고 담당자에게 인증·앱 권한 확인을 요청하세요.');
+        } else if (['SUBJECT_SCOPE_UNVERIFIED', 'AI_REQUEST_UNVERIFIED'].includes(explanation.error?.code)) {
+          add('실제 사건 설명 성공은 확인 불가입니다. 담당자에게 계정 연결과 앱 권한 확인을 요청하세요.');
+        }
         add('기존 보안 기록은 그대로입니다. 자동으로 다시 요청하지 않습니다.');
       } else if (explanation.status === 'ok' && safe(event?.id) !== '확인 불가'
         && safe(explanation.data?.summary) !== '확인 불가') {
