@@ -97,7 +97,65 @@ export function createStudentView() {
       });
       return root;
     },
-    renderDecision() { return '학생 구현 대기: 서버의 판정과 이유를 연결하세요.'; },
+    renderDecision({ status, mode, data, error, appId } = {}) {
+      // 새 요청의 표시로 교체하며, loading/error에서는 이전 data를 사용하지 않습니다.
+      const root = document.createElement('div');
+      const add = (tag, text, parent = root) => {
+        const node = document.createElement(tag);
+        node.textContent = text;
+        parent.append(node);
+        return node;
+      };
+      const value = text => typeof text === 'string' && text.trim() ? text : '확인 불가';
+      if (mode === 'demo') add('p', '예제 자료');
+      else if (mode === 'disconnected') add('p', '연결 없음');
+      else if (mode !== 'connected') add('p', '연결 상태 확인 불가');
+
+      if (status === 'idle') {
+        add('p', '앱을 골라 접속을 요청하세요. (idle)');
+        return root;
+      }
+      if (status === 'loading') {
+        add('p', `요청한 앱 ID: ${value(appId)}`);
+        add('p', '판정 확인 중 (loading)');
+        return root;
+      }
+      if (status === 'error') {
+        add('p', `요청한 앱 ID: ${value(appId)}`);
+        add('p', `요청 실패 (error): ${value(error?.message)}`);
+        add('p', '접근 거부 판정이 아닙니다. 요청에 실패하여 접근 판정을 확인할 수 없습니다.');
+        return root;
+      }
+      if (status !== 'ok') {
+        add('p', '요청 상태 확인 불가. 접근 판정을 확인할 수 없습니다.');
+        return root;
+      }
+
+      let decision;
+      switch (data?.decision) {
+        case 'allow': decision = '접근 허용 (allow)'; break;
+        case 'deny': decision = '접근 거부 (deny)'; break;
+        case 'challenge': decision = '추가 인증 또는 확인 필요 (challenge)'; break;
+        default: decision = '판정 확인 불가 (unknown)';
+      }
+      const list = document.createElement('dl');
+      for (const [label, text] of [
+        ['앱 ID', value(data?.appId ?? appId)],
+        ['접근 판정', decision],
+        ['판정 이유', value(data?.reason)],
+        ['판정 시각', value(data?.checkedAt)],
+      ]) {
+        add('dt', label, list);
+        add('dd', text, list);
+      }
+      root.append(list);
+      if (data?.decision === 'allow') {
+        add('p', '정책상 접근 허용이며 실제 앱 접속 성공을 보장하지 않습니다.');
+      } else if (data?.decision === 'challenge') {
+        add('p', '추가 인증 또는 확인이 필요합니다. 이 앱이 확인 절차를 대신 수행하지 않습니다.');
+      }
+      return root;
+    },
     renderEvents() { return '학생 구현 대기: 본인 접속·XDR 기록을 연결하세요.'; },
     renderStatus() { return '학생 구현 대기: 기기·세션·알림과 연결 점검 상태를 구분하세요.'; },
     renderVulnerabilities() { return '학생 구현 대기: 정확한 설치 버전·OSV 출처·조회 시각·부분 결과·조회 실패를 구분하세요.'; },
