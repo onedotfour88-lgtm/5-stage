@@ -1,3 +1,9 @@
+# 17단계 — AI 연결 점검과 사건 설명 기본 표시
+
+학생 구현은 `on-client/student/extension.mjs`의 `renderAiConnection`과 `renderExplanation`입니다. 연결 점검 상태·오류별 수동 복구 안내와 별도의 사건 설명 결과를 구분합니다. 기존 13~16단계 함수와 제공 서버·UI·인증 설정은 변경하지 않았습니다.
+
+실행: `npm --prefix on-client start` → `http://127.0.0.1:5189/`. 검사: `npm --prefix on-client run check`. 구문 검사와 별도 모의 DOM 검사 29개 성공. 실제 계정 승인·유료 AI 호출·취소 경쟁 상황의 실제 화면·공식 판정은 미확인입니다. 제출은 크기 제한에 맞춘 별도 검토 브랜치의 커밋으로 진행하며, 실행과 다음 구현은 main을 사용합니다.
+
 # 13단계 — 케셰브 사용자·기기·세션 표시
 
 기존 1~12단계 프로젝트에 공식 시작 틀 0.2.11을 `on-client/`로 추가했습니다. 학생 구현은 `on-client/student/extension.mjs`의 `renderIdentity`입니다. 사용자·현재 기기·세션과 기기/세션 목록을 구분하고, 각 loading/ok/error 및 demo/disconnected/unknown 안내를 표시합니다. 매 호출 새 DOM을 반환해 제공 UI가 이전 정보를 교체하며 오류에 남은 오래된 data는 표시하지 않습니다. 다른 학생 함수와 제공 코드는 유지합니다.
