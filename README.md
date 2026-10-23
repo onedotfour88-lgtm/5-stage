@@ -6,7 +6,7 @@
 
 **지원 환경과 확인한 버전**: Windows 11 Pro 10.0.26100, Windows PowerShell 5.1, Node.js v24.19.0(수업 기준 24.19.0), npm 11.17.0, 외부 npm 의존성 없음. macOS·Linux·Node.js 22~23·25 이상은 확인하지 않았습니다.
 
-**실행**(`on-client` 폴더의 PowerShell): `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-alekov.ps1` 후 `http://127.0.0.1:5189/`. 종료는 `Ctrl+C`입니다. 이 PC에서는 포트 5191(`-Port 5191`)로 시작·`/` 응답 200·종료를 확인했고, 예제 모드(`npm run demo`)도 확인했습니다. 기본 포트 5189 실행, 실제 계정 연결, AI 연결 점검·사건 설명, 조치 집행, 실제 OSV 조회, 실제 SDP 연결은 확인하지 않았습니다.
+**실행**(`on-client` 폴더의 PowerShell): `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-alekov.ps1` 후 `http://127.0.0.1:5189/`. 종료는 `Ctrl+C`입니다. 이 PC에서는 `on-client`에서 포트 5191(`-Port 5191`)로 시작·`/` 응답 200·종료를 확인했고, 같은 내용의 `node src/server.mjs --demo`로 예제 모드도 확인했습니다(`npm run demo` 명령 자체는 미확인). `on-client`에서는 `npm run check`, Git 최상위에서는 `npm --prefix on-client run check`로 구분합니다. 선택 연결(SDP·계정 연결·조치·패키지 조회)을 켜면 서버가 `on-client` 밖의 설정·자격 파일을 읽으며, 기본 실행에서는 읽지 않습니다. 기본 포트 5189 실행, 실제 계정 연결, AI 연결 점검·사건 설명, 조치 집행, 실제 OSV 조회, 실제 SDP 연결은 확인하지 않았습니다.
 
 **제출 범위**: 제출 커밋에는 이 README와 `on-client/` 전체가 있어 위 실행 명령에 필요한 `src/server.mjs`와 import 모듈이 같은 커밋에 들어 있습니다. 1~12단계 과제 파일과 XDR 작업 파일은 앱 실행에 필요하지 않아 넣지 않았습니다(STUDENT_RUNBOOK.md 10.1).
 
