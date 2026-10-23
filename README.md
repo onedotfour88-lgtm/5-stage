@@ -8,7 +8,7 @@
 
 **실행**(`on-client` 폴더의 PowerShell): `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-alekov.ps1` 후 `http://127.0.0.1:5189/`. 종료는 `Ctrl+C`입니다. 이 PC에서는 포트 5191(`-Port 5191`)로 시작·`/` 응답 200·종료를 확인했고, 예제 모드(`npm run demo`)도 확인했습니다. 기본 포트 5189 실행, 실제 계정 연결, AI 연결 점검·사건 설명, 조치 집행, 실제 OSV 조회, 실제 SDP 연결은 확인하지 않았습니다.
 
-**제출용 브랜치**: 코드 크기 한도 때문에 제출은 크기를 줄인 `submission-stage21` 브랜치로 하며, 빠지는 파일은 STUDENT_RUNBOOK.md 10.1에 적었습니다.
+**제출 범위**: 제출 커밋에는 이 README와 `on-client/` 전체가 있어 위 실행 명령에 필요한 `src/server.mjs`와 import 모듈이 같은 커밋에 들어 있습니다. 1~12단계 과제 파일과 XDR 작업 파일은 앱 실행에 필요하지 않아 넣지 않았습니다(STUDENT_RUNBOOK.md 10.1).
 
 # 17단계 — AI 연결 점검과 사건 설명 기본 표시
 

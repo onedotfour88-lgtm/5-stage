@@ -23,26 +23,38 @@
 
 ## 3. 폴더 구조
 
-작업 위치는 Git 최상위인 프로젝트 폴더 `project5`이고, 13~22단계 앱은 그 안의 `on-client` 폴더입니다.
+제출 커밋의 Git 최상위에는 `README.md`와 `on-client/`만 있습니다. 앱 전체와 실행에 필요한 파일은 모두 `on-client/` 안에 있고, `on-client` 밖의 파일을 읽는 코드는 없습니다(소스에서 `../../../` 형태의 바깥 경로 참조가 없음을 검색으로 확인). 1~12단계 과제 파일(`api/`, `aleph.config.json` 등)은 이 앱 실행에 필요하지 않아 제출 커밋에 넣지 않았습니다. PowerShell을 여는 위치는 `on-client`입니다.
 
 ```
-project5/                         ← Git 최상위 (커밋·제출은 여기 기준)
-├─ README.md                      ← 학생 작성 단계 기록과 요약
-├─ aleph.config.json, api/, src/  ← 1~12단계 과제(Vercel 배포 앱)
-└─ on-client/                     ← 13~22단계 앱 폴더 (PowerShell을 여는 위치)
-   ├─ package.json                ← start / demo / check 스크립트
-   ├─ .env.example                ← 비밀 없는 설정 견본
-   ├─ student/extension.mjs       ← 학생 구현 (renderIdentity … renderAction)
-   ├─ student/engine-adapter.mjs  ← 제공 어댑터 틀
-   ├─ tools/start-alekov.ps1      ← 제공 실행 도구
-   ├─ src/server.mjs              ← 제공 로컬 서버 (127.0.0.1 전용)
-   ├─ src/engine.mjs, src/engine/ ← 기존 엔진·SDP 연결 모듈
-   ├─ src/connection/             ← 계정 연결(native login)
-   ├─ src/ai/, src/learner-support/ ← 앱 안 AI 연결·도움
-   ├─ src/actions/                ← 조치 요청 서비스
-   ├─ src/vulnerabilities/        ← OSV 패키지 조회
-   ├─ public/                     ← 브라우저 화면 (index.html, app.js 등)
-   └─ docs/                       ← 제공 문서 + 이 학생 문서
+(Git 최상위)
+├─ README.md                        ← 21단계 요약(목적·구성·환경·버전·실행)
+└─ on-client/                       ← 앱 폴더 (PowerShell을 여는 위치)
+   ├─ package.json                  ← start / demo / check 스크립트
+   ├─ .env.example                  ← 비밀 없는 설정 견본
+   ├─ .gitignore                    ← .env, .env.*, node_modules/ 제외
+   ├─ README.md                     ← 제공 시작 틀 안내(수정하지 않음)
+   ├─ tools/
+   │  ├─ start-alekov.ps1           ← 실행 도구 (src/server.mjs를 실행)
+   │  ├─ app-credentials.ps1        ← 앱 자격 보관함 도우미 (src/ai/credential-vault.mjs가 사용)
+   │  ├─ native-host-registry.ps1   ← 계정 연결 도우미 (src/connection/native-context.mjs가 사용)
+   │  └─ prepare-native-host.ps1    ← 계정 연결 준비 도구 (운영자 안내가 있을 때만)
+   ├─ src/
+   │  ├─ server.mjs                 ← 로컬 앱 서버 진입점 (127.0.0.1 전용)
+   │  ├─ engine.mjs, engine/        ← 엔진 로더, SDP 연결(sdp-host.mjs, sdp-host-config.mjs)
+   │  ├─ connection/                ← 계정 연결(manager, native-login, native-context)
+   │  ├─ ai/                        ← 앱 안 AI(service.mjs 등), 게이트웨이 호출
+   │  ├─ learner-support/           ← 학생 도움정보 서비스
+   │  ├─ actions/                   ← 조치 요청 서비스(service, store, sdp-action-engine)
+   │  └─ vulnerabilities/           ← OSV 패키지 조회(osv.mjs, project-scan.mjs)
+   ├─ vendor/clco-http.mjs          ← AI 게이트웨이 HTTP 클라이언트(src/ai/service.mjs가 사용)
+   ├─ public/                       ← 브라우저 화면
+   │  ├─ index.html, app.js, style.css
+   │  ├─ ai-connect.mjs, vulnerabilities-view.mjs
+   │  └─ assets/alekov/*.webp       ← 이미지(서버가 허용 목록으로만 제공)
+   ├─ student/
+   │  ├─ extension.mjs              ← 학생 구현 (render* 8개)
+   │  └─ engine-adapter.mjs         ← 제공 어댑터 틀
+   └─ docs/                         ← 제공 문서 + 이 학생 문서(STUDENT_RUNBOOK.md)
 ```
 
 ## 4. 실행·확인·종료·재실행
@@ -77,42 +89,58 @@ project5/                         ← Git 최상위 (커밋·제출은 여기 �
 
 ## 5. 시스템 구성도 (글)
 
+아래 관계는 `src/server.mjs`의 `import` 문, 정적 파일 허용 목록(`files` 맵), `public/app.js`의 `import`와 `STUDENT_MODULE`, 각 모듈의 `import` 문을 읽고 작성했습니다.
+
 ### 5.1 Mermaid
 
 ```mermaid
 flowchart LR
-  B["브라우저<br/>http://127.0.0.1:5189/<br/>public/index.html, public/app.js"]
-  S["로컬 앱 서버<br/>on-client/src/server.mjs<br/>(127.0.0.1 전용)"]
-  ST["학생 표시 함수<br/>student/extension.mjs<br/>render* 8개"]
-  E["엔진 어댑터<br/>src/engine.mjs, src/engine/sdp-host.mjs<br/>student/engine-adapter.mjs"]
-  C["계정 연결<br/>src/connection/ (native login)"]
-  A["앱 안 AI<br/>src/ai/service.mjs"]
-  ACT["조치 요청<br/>src/actions/service.mjs"]
-  V["패키지 조회<br/>src/vulnerabilities/osv.mjs"]
+  B["브라우저<br/>http://127.0.0.1:5189/"]
+  subgraph PUB["on-client/public + student (서버가 정적으로 제공)"]
+    IDX["index.html, style.css"]
+    APP["app.js"]
+    ACN["ai-connect.mjs"]
+    VV["vulnerabilities-view.mjs"]
+    STU["student/extension.mjs<br/>render* 8개"]
+  end
+  S["on-client/src/server.mjs<br/>로컬 앱 서버 (127.0.0.1 전용)"]
+  ENG["engine.mjs → engine/sdp-host.mjs<br/>(student/engine-adapter.mjs)"]
+  CON["connection/<br/>manager, native-login, native-context"]
+  AI["ai/service.mjs<br/>+ vendor/clco-http.mjs"]
+  LS["learner-support/service.mjs"]
+  ACT["actions/service.mjs<br/>+ sdp-action-engine.mjs"]
+  VUL["vulnerabilities/osv.mjs<br/>project-scan.mjs"]
   XDR["접근 제어·XDR 시스템(SDP)<br/>운영 측 제공"]
-  P["ALEPH 포털<br/>(계정 승인)"]
+  P["ALEPH 포털(계정 승인)"]
   G["AI 게이트웨이(CLCO)<br/>운영 측 제공"]
-  O["OSV 공개 API<br/>api.osv.dev"]
-  B -- "HTTP GET/POST /api/*" --> S
-  S -- "data를 정제해 전달" --> B
-  B -- "render*(입력) → DOM" --> ST
-  S --> E --> XDR
-  S --> C --> P
-  S --> A --> G
+  O["OSV 공개 API<br/>https://api.osv.dev/v1/querybatch"]
+  B -->|"GET / /app.js /style.css /student/extension.mjs ..."| S
+  S --> PUB
+  APP -->|"import"| VV
+  APP -->|"동적 import 후 표시 함수 호출"| STU
+  IDX -->|"script type=module"| APP
+  APP -->|"동적 import"| ACN
+  B -->|"fetch /api/*"| S
+  S --> ENG --> XDR
+  S --> CON --> P
+  S --> AI --> G
+  S --> LS
   S --> ACT --> XDR
-  S --> V --> O
+  S --> VUL --> O
 ```
 
 ### 5.2 같은 내용의 표
 
 | 구간 | 주고받는 것 | 실제 파일 | 이 PC에서 확인 |
 |---|---|---|---|
-| 브라우저 → 로컬 앱 서버 | `GET /api/me, /api/apps, /api/events, /api/devices, /api/sessions, /api/diagnostics, /api/vulnerabilities`, `POST /api/access, /api/ai/check, /api/ai/explain, /api/actions/prepare, /api/actions/execute, /api/actions/result, /api/learner-support` | `public/app.js`, `src/server.mjs` | `/`, `/api/vulnerabilities`, `/api/me`(예제)만 확인 |
-| 로컬 앱 서버 → 학생 표시 함수 | 응답 상태(`status`·`mode`·`data`·`error`) | `public/app.js`가 `student/extension.mjs`의 함수를 호출 | 모의 입력으로만 확인(7장) |
-| 로컬 앱 서버 → 접근 제어·XDR(SDP) | 본인·기기·세션·업무 앱 판정·보안 기록, 조치 | `src/engine/sdp-host.mjs`, `src/actions/` | **미확인**(SDP 설정 파일 없음) |
-| 로컬 앱 서버 → ALEPH 포털 | 계정 연결 확인 | `src/connection/` | **미확인** |
-| 로컬 앱 서버 → AI 게이트웨이 | 연결 점검, 사건 설명 | `src/ai/service.mjs` | **미확인**(앱 권한 준비 여부 확인 불가) |
-| 로컬 앱 서버 → OSV | 정확한 설치 버전 조회, 운영자 허용 패키지만 | `src/vulnerabilities/` | **미확인**(허용 목록 `[]`이라 조회 없음) |
+| 브라우저 → 로컬 앱 서버(정적 파일) | `/`, `/index.html`, `/app.js`, `/style.css`, `/vulnerabilities-view.mjs`, `/ai-connect.mjs`, `/student/extension.mjs`, `/assets/alekov/*.webp` (서버의 `files` 허용 목록에 있는 것만) | `src/server.mjs` | `/`만 HTTP 200 확인 |
+| 브라우저 → 로컬 앱 서버(API) | `GET /api/me, /api/apps, /api/events, /api/devices, /api/sessions, /api/diagnostics, /api/vulnerabilities`, `POST /api/access, /api/ai/check, /api/ai/explain, /api/actions/prepare, /api/actions/execute, /api/actions/result, /api/learner-support` | `public/app.js`, `src/server.mjs` | `/api/vulnerabilities`, `/api/me`(예제)만 확인 |
+| `index.html` → `app.js` → 학생 표시 함수 | 응답 상태(`status`·`mode`·`data`·`error`)를 입력으로 `render*` 호출 | `public/app.js`(`STUDENT_MODULE = '/student/extension.mjs'`를 동적 import, `ai-connect.mjs`도 동적 import), `student/extension.mjs` | 모의 입력으로만 확인(7장) |
+| 서버 → 엔진 → 접근 제어·XDR(SDP) | 본인·기기·세션·업무 앱 판정·보안 기록 | `src/engine.mjs`, `src/engine/sdp-host.mjs`, `student/engine-adapter.mjs` | **미확인**(SDP 설정 파일 없음) |
+| 서버 → 조치 서비스 → SDP | 조치 준비·집행·결과 조회 | `src/actions/service.mjs`, `src/actions/sdp-action-engine.mjs`, `src/engine/sdp-host.mjs` | **미확인** |
+| 서버 → 계정 연결 → ALEPH 포털 | 계정 연결 확인 | `src/connection/` | **미확인** |
+| 서버 → AI → AI 게이트웨이 | 연결 점검, 사건 설명 | `src/ai/service.mjs`, `vendor/clco-http.mjs` | **미확인**(앱 권한 준비 여부 확인 불가) |
+| 서버 → OSV | 정확한 설치 버전 조회, 운영자 허용 패키지만 | `src/vulnerabilities/osv.mjs`, `project-scan.mjs` | **미확인**(허용 목록 `[]`이라 조회 없음) |
 
 ## 6. 구현한 함수와 제공 코드의 경계
 
@@ -174,6 +202,6 @@ flowchart LR
 3. 비공개 커밋이면 과제 화면의 「비공개 저장소 원문 준비 방법」에서 「원문 전달 도구 받기」로 받은 `student-source-cli.mjs`를 사용합니다. 명령의 도구·출력 파일 경로와 `--commit` 값은 과제 화면 안내를 따르며, 이 문서에는 **추측한 명령을 적지 않았습니다**.
 4. 생성된 JSON을 같은 단계의 「비공개 저장소 원문 묶음」에서 선택해 제출하고, 서버 상태와 판정 설명을 확인합니다.
 
-### 10.1 제출용 축소 브랜치
+### 10.1 제출 커밋의 범위
 
-코드 크기 한도(약 250KB) 때문에 제출은 `main`이 아니라 크기를 줄인 `submission-stage21` 브랜치로 합니다. 이 브랜치에는 이 문서, `README.md`, `on-client/package.json`, `on-client/.env.example`, `on-client/tools/start-alekov.ps1`, `on-client/student/`의 파일, 그리고 화면 파일 `on-client/public/{index.html,app.js,ai-connect.mjs}`, `on-client/src/ai/service.mjs`가 들어 있고, `src/server.mjs`·`src/engine/`·`src/connection/`·`src/actions/`·`src/vulnerabilities/`·`public/style.css`·`public/vulnerabilities-view.mjs`는 **빠져 있습니다**. 빠진 파일의 내용은 `main` 브랜치에 있으며, 3~6장은 `main`의 전체 트리를 기준으로 쓴 설명입니다.
+제출 커밋(`submission-stage21` 계열)에는 Git 최상위 `README.md`와 `on-client/` 전체(소스·실행 도구·설정 견본·제공 문서·이 학생 문서)가 들어 있어, 4장의 실행 명령에 필요한 `src/server.mjs`와 그 import 모듈, `public/`, `student/`, `tools/`, `vendor/`가 모두 같은 커밋에 있습니다. 1~12단계 과제 파일과 XDR 작업 파일, `node_modules/`, `.env`는 이 앱 실행에 필요하지 않거나 비밀값이라 넣지 않았습니다. 코드가 커서 확인 불가가 나오면(이전 단계에서 한도 약 250KB가 적용됐습니다) 실패가 아니라 확인 불가이므로 그 안내에 따라 다시 제출합니다.
