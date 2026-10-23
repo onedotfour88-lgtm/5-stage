@@ -568,6 +568,101 @@ export function createStudentView() {
       add(root, 'p', `확인 시각(checkedAt): ${safe(checkedAt)}`);
       return root;
     },
-    renderAction() { return '학생 구현 대기: 현재 사건·조치·실제 대상·사람 확인·ACK와 원천 효과·unknown을 구분하세요.'; },
+    renderAction({ status, event, actionId, target, receipt, observation, message, confirmationExpiresAt, error } = {}) {
+      const root = document.createElement('section');
+      const add = (tag, text) => {
+        const node = document.createElement(tag);
+        node.textContent = text;
+        root.append(node);
+        return node;
+      };
+      const safe = value => typeof value === 'string' && value.trim() && value.length <= 300
+        && !/Bearer\s+|-----BEGIN|\beyJ[\w-]+\.|\b(?:sk-|sb_secret_|ghp_|github_pat_)[\w-]+|ac-on-[\w-]{20,}|(?:password|token|secret|api[_ -]?key|authorization|confirmationId|비밀번호|토큰)\s*[:=]/i.test(value)
+        ? value : '확인 불가';
+      const num = value => (Number.isSafeInteger(value) ? String(value) : '확인 불가');
+      const eventId = safe(event?.id);
+      const requestId = safe(receipt?.requestId);
+      const known = ['idle', 'loading', 'executing', 'prepared', 'pending', 'succeeded', 'denied', 'failed', 'unknown', 'error', 'expired'];
+      // 효과 확인은 succeeded이면서 effectApplied가 true이고 관측 시각·receiptId가 있을 때만 인정합니다.
+      const effectConfirmed = status === 'succeeded' && observation?.effectApplied === true
+        && safe(observation.observedAt) !== '확인 불가' && safe(receipt?.receiptId) !== '확인 불가';
+      const shown = status === 'succeeded' && !effectConfirmed ? 'unknown' : status;
+      if (!known.includes(shown)) {
+        add('p', '조치 상태 확인 불가. 성공이나 효과 없음으로 판단하지 말고 제공 화면의 「연동 시스템 결과만 재조회」를 직접 누르세요.');
+        return root;
+      }
+      const headline = {
+        idle: '아직 미실행(idle)',
+        loading: '조치 준비 또는 결과 조회 중(loading) · 아직 결과가 없습니다.',
+        prepared: '준비됨·미실행(prepared) · 사람이 대상과 조치를 확인하기 전에는 전달되지 않습니다.',
+        executing: '서버에 전달 중(executing) · 결과가 아직 확인되지 않았습니다.',
+        pending: '서버 접수·처리 중(pending) · 서버가 요청을 받았다는 확인(ACK)일 뿐 조치 효과가 확인된 것은 아닙니다. 결과가 아직 확인되지 않았습니다.',
+        succeeded: '효과 확인(succeeded) · 연동 시스템이 관측한 결과입니다.',
+        denied: '거절(denied) · 연동 시스템이 이 조치를 허용하지 않았습니다.',
+        failed: '실패(failed) · 연동 시스템이 조치를 처리하지 못했습니다.',
+        unknown: '결과 불명(unknown) · 효과가 적용됐다고도 적용되지 않았다고도 판단하지 마세요.',
+        expired: '확인 기한 지남(expired) · 조치를 다시 준비하고 대상을 확인하세요.',
+        error: '요청 처리 안 됨(error) · 조치가 서버에 전달되지 않았을 수 있으며 효과를 확인한 것도 아닙니다.',
+      };
+      add('p', `조치 상태: ${headline[shown]}`);
+      if (status === 'succeeded' && !effectConfirmed) {
+        add('p', '서버가 succeeded를 보냈지만 effectApplied: true인 관측과 관측 시각·receiptId가 없어 효과 확인으로 인정하지 않습니다.');
+      }
+      if (shown === 'idle') {
+        add('p', Array.isArray(event?.supportedActions) && event.supportedActions.length === 0
+          ? '이 기록은 연동 시스템이 지원하는 조치가 없어 「조치 준비」 버튼이 나오지 않는 것이 정상입니다.'
+          : '조치는 제공 화면에서 AI 제안의 「조치 준비」를 눌러 시작합니다.');
+      }
+      if (shown === 'prepared') {
+        add('p', `확인 기한(confirmationExpiresAt): ${safe(confirmationExpiresAt)}`);
+        add('p', '실제 집행은 제공 화면의 「대상과 조치를 확인했으며 집행합니다」를 사람이 직접 눌러야 시작합니다. 이 화면에는 실행 버튼이 없습니다.');
+      }
+      if (shown === 'executing' || shown === 'pending') {
+        add('p', '같은 요청을 다시 전달하지 마세요. 결과는 제공 화면의 「연동 시스템 결과만 재조회」로 확인합니다.');
+      }
+      if (shown === 'unknown') add('p', '제공 화면의 「연동 시스템 결과만 재조회」를 직접 눌러 결과만 다시 조회하세요. 자동으로 다시 요청하지 않습니다.');
+      if (['denied', 'failed', 'error'].includes(shown) || (shown === 'unknown' && (message || error))) {
+        if (message) add('p', `메시지: ${safe(message)}`);
+        if (error) add('p', `코드: ${safe(error.code)} · 메시지: ${safe(error.message)}`);
+      } else if (message && ['loading', 'executing'].includes(shown)) add('p', `메시지: ${safe(message)}`);
+      if (effectConfirmed && shown === 'succeeded') {
+        add('p', `관측 시각(observedAt): ${safe(observation.observedAt)}`);
+        add('p', 'effectApplied: true');
+        add('p', `receiptId: ${safe(receipt.receiptId)}`);
+      }
+      if (receipt?.replayed === true) add('p', '같은 요청의 저장된 응답(replayed: true)입니다. 새로 실행된 것이 아니며 중복 집행하지 않습니다.');
+
+      const rows = [];
+      if (event) rows.push(['사건 ID', eventId]);
+      const evidenceIds = Array.isArray(event?.evidence) ? event.evidence.map(row => safe(row?.id)) : [];
+      if (evidenceIds.length) rows.push(['근거 ID', evidenceIds.join(', ')]);
+      if (actionId) rows.push(['조치(actionId)', safe(actionId)]);
+      if (target) {
+        rows.push(['대상 ID(target.id)', safe(target.id)]);
+        rows.push(['대상 세대(generation)', num(target.generation)]);
+      }
+      if (receipt) {
+        if (receipt.requestId) rows.push(['요청 ID(requestId)', requestId]);
+        if (receipt.receiptId) rows.push(['receiptId', safe(receipt.receiptId)]);
+        if (receipt.version !== undefined) rows.push(['version', num(receipt.version)]);
+      }
+      if (rows.length) {
+        const ul = document.createElement('ul');
+        for (const [name, value] of rows) {
+          const li = document.createElement('li');
+          li.textContent = `${name}: ${value}`;
+          ul.append(li);
+        }
+        root.append(ul);
+      }
+      add('p', 'AI 제안, 사람 확인, 서버 접수(ACK), 실제 효과 확인은 서로 다른 단계입니다. 「조치 화면 취소」는 이미 서버에 전달된 조치 효과를 되돌리지 않습니다.');
+      // 속성은 사건과 요청이 모두 확인된 정상 표시에만 붙입니다.
+      if (['prepared', 'executing', 'pending', 'succeeded', 'denied', 'failed', 'unknown'].includes(shown)
+        && !(status === 'succeeded' && !effectConfirmed) && eventId !== '확인 불가' && requestId !== '확인 불가') {
+        root.setAttribute('data-student-action-event', event.id);
+        root.setAttribute('data-student-action-request', receipt.requestId);
+      }
+      return root;
+    },
   };
 }
