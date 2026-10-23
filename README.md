@@ -1,6 +1,6 @@
-# 19단계 제출용 축소본
+# 20단계 제출용 축소본
 
-이 브랜치는 코드 크기 한도를 맞춘 검토용입니다(스타일·문서 사본 제외, 원본은 main). 학생 구현은 on-client/student/extension.mjs의 renderAction입니다. 모의 DOM 검사 18개 통과(실제 계정·실제 집행 미확인).
+이 브랜치는 코드 크기 한도를 맞춘 검토용입니다(스타일·문서 사본 제외, 원본은 main). 학생 구현은 on-client/student/extension.mjs의 renderVulnerabilities입니다. 모의 DOM 검사 13개 통과(실제 화면·실제 OSV 조회 미확인).
 
 # 케셰브 17단계 검토용 소스
 
