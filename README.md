@@ -1,19 +1,14 @@
-# 20단계 제출용 축소본
+# 21단계 — 학생용 실행 설명서와 시스템 구성도
 
-이 브랜치는 코드 크기 한도를 맞춘 검토용입니다(스타일·문서 사본 제외, 원본은 main). 학생 구현은 on-client/student/extension.mjs의 renderVulnerabilities입니다. 모의 DOM 검사 13개 통과(실제 화면·실제 OSV 조회 미확인).
+**목적**: 「케셰브」는 직원이 자기 로그인·기기·세션, 업무 앱 접속 판정, 보안 기록, 설치 패키지 취약점 조회, 앱 안 AI 설명, 조치 요청 상태를 구분해 보는 보안 Agent 앱입니다. 실제 보안 조치를 집행하는 앱이 아니라 서버 결과를 정확히 구분해 표시합니다.
 
-# 케셰브 17단계 검토용 소스
+**구성**: 브라우저(`on-client/public`) → 로컬 앱 서버(`on-client/src/server.mjs`, `127.0.0.1:5189`) → 접근 제어·XDR(SDP)·ALEPH 포털·AI 게이트웨이·OSV. 학생 구현은 `on-client/student/extension.mjs`의 `renderIdentity`~`renderAction`·`renderVulnerabilities` 8개 함수이고 나머지는 제공 코드입니다. 구성도(Mermaid와 같은 내용의 표), 폴더 구조, 제공/학생 경계, 오류별 확인 순서는 [on-client/docs/STUDENT_RUNBOOK.md](on-client/docs/STUDENT_RUNBOOK.md)에 있습니다.
 
-약 250KB 검토 한도에 맞춘 코드 검토용 스냅샷이며 독립 실행용이 아닙니다. 전체 실행 프로젝트와 과거 기록은 main 및 부모 커밋에 보존합니다. 바탕화면 project5의 main에서 npm --prefix on-client start 로 실행합니다.
+**지원 환경과 확인한 버전**: Windows 11 Pro 10.0.26100, Windows PowerShell 5.1, Node.js v24.19.0(수업 기준 24.19.0), npm 11.17.0, 외부 npm 의존성 없음. macOS·Linux·Node.js 22~23·25 이상은 확인하지 않았습니다.
 
-학생 구현은 on-client/student/extension.mjs 입니다. 13~16단계 함수를 유지하고 renderAiConnection과 renderExplanation 기본 표시만 구현했습니다. 연결 점검과 사건 설명의 성공을 구분하며 오류·취소·계정 변경 시 이전 표시를 남기지 않습니다. 요청·취소·늦은 응답 무시는 제공 public/app.js가 담당합니다. 제공 src/ai/service.mjs의 모델 호출 경로도 원문 그대로 포함합니다. 학생 코드에서 요청·인증 설정을 추가하지 않았습니다. 제공 파일은 전체 프로젝트 원본과 동일합니다.
+**실행**(`on-client` 폴더의 PowerShell): `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-alekov.ps1` 후 `http://127.0.0.1:5189/`. 종료는 `Ctrl+C`입니다. 이 PC에서는 포트 5191(`-Port 5191`)로 시작·`/` 응답 200·종료를 확인했고, 예제 모드(`npm run demo`)도 확인했습니다. 기본 포트 5189 실행, 실제 계정 연결, AI 연결 점검·사건 설명, 조치 집행, 실제 OSV 조회, 실제 SDP 연결은 확인하지 않았습니다.
 
-큰 이전 과제 자료, 이미지와 이 단계 표시 구현 외 서버 파일은 이 검토 스냅샷에서만 제외했습니다. main과 로컬 작업 파일은 보존했습니다.
+**제출용 브랜치**: 코드 크기 한도 때문에 제출은 크기를 줄인 `submission-stage21` 브랜치로 하며, 빠지는 파일은 STUDENT_RUNBOOK.md 10.1에 적었습니다.
 
-구문 검사와 모의 DOM 검사 48개 성공. 실제 계정 승인·유료 AI 요청·실제 취소 경쟁·공식 판정은 미확인입니다. 연결 점검만으로 사건 설명 성공이나 공식 통과를 주장하지 않습니다.
-
-이번 학생 구현의 원본 커밋: `6263d8c60996d69f63e4d449e9bf1f0e085aa1b9`. 이 검토용 커밋에는 해당 커밋의 학생 파일을 바이트 단위로 동일하게 포함합니다. 실제 사건 설명 호출 성공은 여전히 미확인입니다.
-
-## 재현 가능한 모의 표시 검사
-
-저장소 루트에서 `node stage17-mock-test.mjs`를 실행합니다. 현재 학생 파일에 가상 사건과 응답을 전달하는 5개 시나리오를 검사합니다. 네트워크 요청과 실제 모델 호출은 없으며, 실제 취소 경쟁이나 운영 계정 권한을 검증하지 않습니다. 이 검사는 `ai_model_called`의 실제 호출 성공 또는 공식 통과 근거가 아닙니다.
+---
+이 브랜치는 제출용 축소본입니다. 전체 파일은 main 브랜치에 있습니다.
