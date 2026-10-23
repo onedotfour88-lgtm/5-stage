@@ -1,7 +1,0 @@
-{
-  "originalApiUrl": "https://igumgbitelfytidliydi.supabase.co/rest/v1/memos",
-  "allowedRoutes": [
-    "/api/memos",
-    "/api/notes"
-  ]
-}
