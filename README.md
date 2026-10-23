@@ -1,3 +1,7 @@
+# 18단계 제출용 축소본
+
+이 브랜치는 코드 크기 한도를 맞춘 검토용입니다. 학생 구현은 on-client/student/extension.mjs의 renderExplanation입니다. 모의 DOM 검사 13개 통과(실제 계정·유료 호출 미확인).
+
 # 케셰브 17단계 검토용 소스
 
 약 250KB 검토 한도에 맞춘 코드 검토용 스냅샷이며 독립 실행용이 아닙니다. 전체 실행 프로젝트와 과거 기록은 main 및 부모 커밋에 보존합니다. 바탕화면 project5의 main에서 npm --prefix on-client start 로 실행합니다.
