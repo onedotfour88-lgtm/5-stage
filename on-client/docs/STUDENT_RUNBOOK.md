@@ -188,7 +188,7 @@ flowchart LR
 | 예제 모드: `node src/server.mjs --demo` 시작과 `/api/me` 응답 | **확인함** | `ON_PORT=5192`로 실행 후 종료. `npm run demo` 명령 자체는 **미확인** |
 | 서버 종료 뒤 응답 없음 | **확인함** | 종료 후 요청 시 연결 실패 |
 | 학생 함수 문법 검사(`npm run check`) | **확인함** | 오류 없음 |
-| 학생 함수의 상태별 표시 | **모의 DOM 입력으로만 확인** | 합성 데이터 검사(18단계 13개, 19단계 18개, 20단계 13개 통과). 실제 응답이 아님 |
+| 학생 함수의 상태별 표시 | **모의 DOM 입력으로만 확인** | `on-client/test/`의 합성 데이터 검사: `stage17-ai-connection.mjs` 5개, `stage18-explanation.mjs` 13개, `stage19-action.mjs` 18개, `stage20-vulnerabilities.mjs` 13개 통과(`on-client`에서 `node test/<파일>`). 실제 응답이 아님. 13~16단계 모의 검사 파일은 없음(**미확인**) |
 | 기본 포트 5189 실행, `npm start` | **미확인** | 이 문서 작성 중 시험하지 않음 |
 | 계정 연결, AI 앱 승인, AI 연결 점검 성공, 사건 설명 성공 | **미확인** | 운영 측 권한 준비 여부를 확인할 수 없음 |
 | 조치 준비·집행·결과 재조회 | **미확인** | 현재 기록의 `supportedActions`가 비어 있어 버튼이 나오지 않는 것이 정상, 집행은 시험하지 않음 |
@@ -227,3 +227,8 @@ flowchart LR
 ### 10.1 제출 커밋의 범위
 
 제출 커밋(`submission-stage21` 계열)에는 Git 최상위 `README.md`와 `on-client/` 전체(소스·실행 도구·설정 견본·제공 문서·이 학생 문서)가 들어 있어, 4장의 실행 명령에 필요한 `src/server.mjs`와 그 import 모듈, `public/`, `student/`, `tools/`, `vendor/`가 모두 같은 커밋에 있습니다. 1~12단계 과제 파일과 XDR 작업 파일, `node_modules/`, `.env`는 이 앱 실행에 필요하지 않거나 비밀값이라 넣지 않았습니다. 코드가 커서 확인 불가가 나오면(이전 단계에서 한도 약 250KB가 적용됐습니다) 실패가 아니라 확인 불가이므로 그 안내에 따라 다시 제출합니다.
+
+## 11. 22단계 문서
+
+- 새 폴더에서 같은 커밋을 받아 이 설명서대로 실행한 재현 기록: `docs/STUDENT_REPRODUCTION.md`
+- 데이터 보존·백업·복원 계획: `docs/STUDENT_DATA_RETENTION.md`

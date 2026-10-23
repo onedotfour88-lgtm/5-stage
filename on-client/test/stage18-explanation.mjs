@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+class N{constructor(t){this.tag=t;this.children=[];this.attrs={};this.textContent='';}append(...c){this.children.push(...c);}setAttribute(k,v){this.attrs[k]=String(v);}}
+globalThis.document={createElement:t=>new N(t)};
+const mod=await import(process.argv[2] ?? new URL('../student/extension.mjs', import.meta.url).href);
+const ext=(mod.createStudentExtension||mod.default||Object.values(mod).find(v=>typeof v==='function'))();
+const txt=n=>[n.textContent,...n.children.map(txt)].join('\n');
+const R=a=>ext.renderExplanation(a);
+const ev=(id,state={})=>({id,summary:'s',evidence:[{id:id+'-e1',text:'근거A'},{id:id+'-e2',text:'근거B'}],rules:[{id:'r1',text:'규칙글'}],state:{access:'allowed',session:'active',device:'unknown',...state},supportedActions:[]});
+const ok=(e,over={})=>({status:'ok',mode:'connected',data:{summary:'요약글',evidenceIds:e.evidence.map(x=>x.id),proposals:[],requiresHumanConfirmation:true,executed:false,...over}});
+let n=0;const t=(name,f)=>{f();n++;console.log('ok',name)};
+const a=ev('A'),b=ev('B',{access:'unknown',session:'unknown'});
+t('성공+속성',()=>{const r=R({event:a,explanation:ok(a),checkedAt:'2026-10-23T00:00:00Z'});assert.equal(r.attrs['data-student-explanation-event'],'A');const s=txt(r);for(const x of ['A-e1 — 근거A','A-e2 — 근거B','r1 — 규칙글','기기: 확인 불가(unknown)','연동 시스템이 지원하는 조치가 없어 제안이 없습니다(정상)','요약글','AI 설명(참고용)'])assert(s.includes(x),x);assert(!s.includes('접속: 확인 불가'))});
+t('기록별 근거 일치',()=>{const s=txt(R({event:b,explanation:ok(b)}));assert(s.includes('B-e1 — 근거A')&&!s.includes('A-e1')&&s.includes('접속: 확인 불가(unknown)')&&s.includes('세션: 확인 불가(unknown)'))});
+t('다른 기록 근거 거부',()=>{const r=R({event:b,explanation:ok(a)});assert(!('data-student-explanation-event' in r.attrs));assert(txt(r).includes('근거 불일치'))});
+t('없는 ID 거부',()=>{const r=R({event:a,explanation:ok(a,{evidenceIds:['A-e1','zzz']})});assert(!r.attrs['data-student-explanation-event'])});
+t('근거 없는 기록',()=>{const e={...a,evidence:[]};const r=R({event:e,explanation:ok(a)});assert(!r.attrs['data-student-explanation-event']&&txt(r).includes('근거 부족'))});
+t('executed:true 거부',()=>{const r=R({event:a,explanation:ok(a,{executed:true})});assert(!r.attrs['data-student-explanation-event']&&txt(r).includes('이미 실행했다고'))});
+t('미지원 조치 거부',()=>{const r=R({event:a,explanation:ok(a,{proposals:[{action:'block',evidenceIds:['A-e1'],reason:'x'}]})});assert(!r.attrs['data-student-explanation-event'])});
+t('지원 조치 제안 미실행',()=>{const e={...a,supportedActions:['block']};const r=R({event:e,explanation:ok(e,{proposals:[{action:'block',evidenceIds:['A-e1'],reason:'이유글'}]})});assert(txt(r).includes('조치: block · 이유: 이유글 · 사람 확인이 필요하며 실행되지 않았습니다')&&r.attrs['data-student-explanation-event']==='A')});
+t('error+event null',()=>{const r=R({event:null,explanation:{status:'error',error:{code:'ON_AI_INVALID_OUTPUT',message:'형식'}}});const s=txt(r);assert(!r.attrs['data-student-explanation-event']&&s.includes('ON_AI_INVALID_OUTPUT')&&s.includes('근거 부족')&&s.includes('기록은 그대로'))});
+t('event null 안내',()=>assert(txt(R({event:null,explanation:{status:'idle'}})).includes('보안 기록에서 기록을 먼저 고르세요')));
+t('loading',()=>{const r=R({event:a,explanation:{status:'loading'}});assert(txt(r).includes('요청 중')&&!r.attrs['data-student-explanation-event'])});
+t('재호출시 이전 속성 없음',()=>{R({event:a,explanation:ok(a)});const r=R({event:b,explanation:{status:'idle'}});assert(!r.attrs['data-student-explanation-event'])});
+t('비밀형태 가림',()=>{const e={...a,evidence:[{id:'A-e1',text:'token: abc'},{id:'A-e2',text:'ok'}]};assert(!txt(R({event:e,explanation:ok(e)})).includes('abc'))});
+console.log(n,'passed');

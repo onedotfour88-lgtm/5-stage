@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+class N{constructor(t){this.tag=t;this.children=[];this.attrs={};this.textContent='';}append(...c){this.children.push(...c);}setAttribute(k,v){this.attrs[k]=String(v);}}
+globalThis.document={createElement:t=>new N(t)};
+const {createStudentView}=await import(process.argv[2] ?? new URL('../student/extension.mjs', import.meta.url).href);
+const ext=createStudentView();
+const txt=n=>[n.textContent,...n.children.map(txt)].join('\n');
+const find=(n,f,o=[])=>{if(f(n))o.push(n);n.children.forEach(c=>find(c,f,o));return o};
+const R=a=>ext.renderVulnerabilities(a);
+const H='a'.repeat(64),T='2026-10-23T01:00:00Z',SRC='https://api.osv.dev/v1/querybatch';
+const pk=(name,version,status,v=[])=>({name,version,status,vulnerabilities:v,source:SRC,checkedAt:T});
+const ok=(st,packages,o={})=>({status:'ok',mode:'connected',data:{status:st,lockfileVersion:3,lockfileHash:H,excluded:{count:2},checkedAt:T,packages,...o}});
+let n=0;const t=(m,f)=>{f();n++;console.log('ok',m)};
+t('idle',()=>assert(txt(R({status:'idle'})).includes('조회 전')));
+t('loading은 이전 표 없음',()=>{const s=txt(R({status:'loading',data:ok('complete',[pk('lodash','4.17.21','none_found')]).data}));assert(s.includes('조회 중')&&!s.includes('lodash'))});
+t('error는 이전 표 없음+메시지',()=>{const s=txt(R({status:'error',data:ok('complete',[pk('lodash','4.17.21','none_found')]).data,error:{code:'TIMEOUT',message:'시간 초과'}}));assert(s.includes('조회 실패: 시간 초과')&&s.includes('TIMEOUT')&&!s.includes('lodash')&&s.includes('다시 조회'))});
+t('complete+행 속성+정확한 버전',()=>{const r=R(ok('complete',[pk('lodash','4.17.21','none_found'),pk('@a/b','1.2.3-beta.1','known_vulnerabilities',[{id:'GHSA-abcd-efgh-ijkl',modified:T}])]));const rows=find(r,x=>'data-student-package-name' in x.attrs);assert.equal(rows.length,2);assert.equal(rows[0].attrs['data-student-package-version'],'4.17.21');const s=txt(r);for(const x of ['모두 조회(complete)','lockfileVersion: 3','lockfileHash: '+H,'조회 시각(checkedAt): '+T,'설치 버전: 4.17.21','출처(source): '+SRC,'알려진 항목 없음(none_found)','안전하다는 보장이 아닙니다','GHSA-abcd-efgh-ijkl','modified: '+T,'알려진 항목 있음(known_vulnerabilities)'])assert(s.includes(x),x)});
+t('범위 버전 거부',()=>{const r=R(ok('complete',[pk('lodash','^4.17.0','none_found'),pk('x','~1.2.0','none_found'),pk('y','latest','none_found'),pk('z','>=1.0.0','none_found')]));assert.equal(find(r,x=>'data-student-package-name' in x.attrs).length,0);assert(!txt(r).includes('^4.17.0'))});
+t('partial: unverifiable+ID 유지',()=>{const r=R(ok('partial',[pk('a','1.0.0','unverifiable',[{id:'CVE-2024-12345',modified:T}]),pk('b','2.0.0','unverifiable')]));const s=txt(r);assert(s.includes('일부 조회 실패(partial)')&&s.includes('일부 확인 · 전체 조회 확인 불가')&&s.includes('CVE-2024-12345')&&s.includes('조회 확인 불가(unverifiable) · 취약점이 없다는 뜻이 아닙니다')&&!s.includes('알려진 항목 없음'))});
+t('not_configured',()=>{const s=txt(R({status:'ok',data:{status:'not_configured',code:'PROJECT_NOT_CONFIGURED',checkedAt:T,packages:[]}}));assert(s.includes('조회 준비 미완료(not_configured)')&&s.includes('운영자가 준비')&&s.includes('취약점이 없다는 뜻이 아닙니다')&&!s.includes('알려진 항목 없음'))});
+t('not_checked',()=>{const s=txt(R(ok('not_checked',[],{code:'NO_APPROVED_PACKAGES'})));assert(s.includes('아직 조회 안 함(not_checked)')&&s.includes('NO_APPROVED_PACKAGES')&&s.includes('lockfileHash'))});
+t('unverifiable',()=>{const s=txt(R({status:'ok',data:{status:'unverifiable',code:'LOCKFILE_UNVERIFIABLE',checkedAt:T,packages:[]}}));assert(s.includes('lock 파일 확인 불가(unverifiable)')&&!s.includes('lockfileHash'))});
+t('complete인데 unverifiable 패키지',()=>assert(txt(R(ok('complete',[pk('a','1.0.0','unverifiable')]))).includes('신뢰할 수 없습니다')));
+t('새 hash로 갱신',()=>{R(ok('complete',[pk('a','1.0.0','none_found')]));const H2='b'.repeat(64);const s=txt(R(ok('complete',[pk('a','1.0.1','none_found')],{lockfileHash:H2})));assert(s.includes(H2)&&!s.includes('a'.repeat(64))&&!s.includes('설치 버전: 1.0.0'))});
+t('비정상 입력',()=>{assert(txt(R({status:'ok',data:{status:'weird'}})).includes('확인 불가'));assert(txt(R({status:'ok'})).includes('확인 불가'));assert(txt(R()).includes('확인 불가'))});
+t('비밀 가림',()=>assert(!txt(R({status:'error',error:{code:'X',message:'token: abc'}})).includes('abc')));
+console.log(n,'passed');
