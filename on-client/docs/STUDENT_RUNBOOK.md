@@ -23,7 +23,16 @@
 
 ## 3. 폴더 구조
 
-제출 커밋의 Git 최상위에는 `README.md`와 `on-client/`만 있습니다. 앱 전체와 실행에 필요한 파일은 모두 `on-client/` 안에 있고, `on-client` 밖의 파일을 읽는 코드는 없습니다(소스에서 `../../../` 형태의 바깥 경로 참조가 없음을 검색으로 확인). 1~12단계 과제 파일(`api/`, `aleph.config.json` 등)은 이 앱 실행에 필요하지 않아 제출 커밋에 넣지 않았습니다. PowerShell을 여는 위치는 `on-client`입니다.
+제출 커밋의 Git 최상위에는 `README.md`와 `on-client/`만 있습니다. **기본 실행**(옵션 없이 `start-alekov.ps1` 또는 `npm start`)이 읽는 코드와 정적 자산(`public/`, `student/`, `src/`, `vendor/`, `tools/`)은 모두 `on-client/` 안에 있습니다. 1~12단계 과제 파일(`api/`, `aleph.config.json` 등)은 이 앱 실행에 필요하지 않아 제출 커밋에 넣지 않았습니다. 다만 **선택 연결을 켜면 서버가 `on-client` 밖의 파일을 읽습니다.** 이 파일들은 운영자가 안내한 절대 경로로만 지정하며, 오히려 프로젝트 안에 있으면 거부하도록 만들어져 있습니다. 기본 실행에서는 읽지 않습니다. PowerShell을 여는 위치는 `on-client`입니다.
+
+| 선택 연결 | 켜는 방법 | `on-client` 밖에서 읽는 것 | 소스의 근거 |
+|---|---|---|---|
+| SDP(접근 제어·XDR) 연결 | `-SdpHostConfig <절대경로>` → `--sdp-host-config` | 설정 파일과 그 안에 지정된 `caFile`, `certFile`, `keyFile`, `tokenFile` (프로젝트 안에 있으면 거부) | `src/engine/sdp-host-config.mjs`의 `readSdpHostConfiguration` |
+| 계정 연결(native login) | `-NativeHostConfig <절대경로>` → `--native-host-config` | 설정 파일, 그 안의 `registryRoot`·`vaultRoot` 디렉터리(프로젝트 밖이어야 함). PowerShell 도우미 `tools/native-host-registry.ps1`·`tools/app-credentials.ps1`을 통해 보관 자료를 다룸 | `src/connection/native-context.mjs`, `src/ai/credential-vault.mjs` |
+| 조치 요청 | `--alekov-actions`와 `--alekov-actions-config <절대경로>` (SDP·계정 연결 설정과 함께) | 조치 설정 파일 | `src/actions/action-startup-config.mjs` |
+| 패키지 취약점 조회 | 환경변수 `ON_PROJECT_DIRECTORY`(절대 경로)와 `ON_APPROVED_PUBLIC_PACKAGES` | 그 폴더의 `package-lock.json`과 설치된 패키지 메타데이터. 폴더를 지정하지 않으면 `not_configured` | `src/vulnerabilities/project-scan.mjs` |
+
+이 PC에서는 위 선택 연결을 하나도 켜지 않았으므로 외부 파일 읽기 자체는 **실행으로 확인하지 못했습니다**(소스를 읽은 내용입니다).
 
 ```
 (Git 최상위)
@@ -63,17 +72,18 @@
 
 파일 탐색기에서 `project5\on-client` 폴더를 열고 주소 표시줄에 `powershell`을 입력해 Enter를 누릅니다. 이미 PowerShell이 열려 있다면 프로젝트 폴더에서 `cd on-client`로 이동합니다. 실행 도구는 이 폴더가 아니면 `앱 폴더가 아닙니다`라는 안내를 내고 멈춥니다.
 
-### 4.2 실행 명령 (실제 확인한 것)
+### 4.2 실행 명령 (작업 폴더별)
 
-| 목적 | 명령 (앱 폴더 `on-client`에서) | 확인 결과 |
-|---|---|---|
-| 기본 실행 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-alekov.ps1` | 포트 5191로 바꾸어 실행해 시작 신호와 응답을 확인했습니다. 다른 작업과 겹치지 않게 5191을 골랐으며 기본 포트 5189로는 시험하지 않았습니다(**미확인**). |
-| 포트 변경 | `... start-alekov.ps1 -Port 5191` | 정상 시작 확인 |
-| 창 없이 실행 | `... start-alekov.ps1 -Background` | 시작 후 프로세스 번호가 안내됨, 해당 node 프로세스 종료로 중지 확인 |
-| 예제 자료 실행 | `npm run demo` (프로젝트 폴더에서는 `npm --prefix on-client run demo`) | 서버 시작 안내와 `/` 응답 200, `/api/me`가 예제 사용자 반환을 확인. 실제 연결이 아님 |
-| 문법 검사 | `npm --prefix on-client run check` | `student/extension.mjs` 문법 오류 없음 |
+`package.json`은 `on-client/`에 있습니다. `npm run ...`은 **앱 폴더 `on-client`에서**, `npm --prefix on-client run ...`은 **Git 최상위(`on-client`의 상위 폴더)에서** 실행합니다. 둘은 같은 스크립트를 가리킵니다. `on-client` 안에서 `--prefix on-client`를 붙이면 존재하지 않는 `on-client\on-client`를 찾으므로 붙이지 않습니다.
 
-`npm start`(`node src/server.mjs`)도 같은 서버를 켜지만 Node 버전·포트를 미리 확인하지 않습니다. 이 PC에서 `npm start`는 따로 실행하지 않았습니다(**미확인**).
+| 목적 | 앱 폴더 `on-client`에서 | Git 최상위에서 | 확인 결과 |
+|---|---|---|---|
+| 기본 실행 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-alekov.ps1` | `powershell -NoProfile -ExecutionPolicy Bypass -File .\on-client\tools\start-alekov.ps1` | 앱 폴더에서 포트 5191로 실행해 시작 신호와 응답을 확인. 기본 포트 5189로는 시험하지 않음(**미확인**). Git 최상위에서 실행한 것도 **미확인** |
+| 포트 변경 | `... start-alekov.ps1 -Port 5191` | 같은 옵션 | 앱 폴더에서 정상 시작 확인 |
+| 창 없이 실행 | `... start-alekov.ps1 -Background` | 같은 옵션 | 시작 후 프로세스 번호가 안내됨, 해당 node 프로세스 종료로 중지 확인 |
+| 서버 직접 실행 | `npm start` (= `node src/server.mjs`) | `npm --prefix on-client start` | **미확인** (Node 버전·포트 사전 확인 없음) |
+| 예제 자료 실행 | `npm run demo` (= `node src/server.mjs --demo`) | `npm --prefix on-client run demo` | `npm run demo` 자체는 **미확인**. 같은 내용인 `node src/server.mjs --demo`를 환경변수 `ON_PORT=5192`로 실행해 `/` 응답 200과 `/api/me`의 예제 사용자 응답을 확인. 실제 연결이 아님 |
+| 문법 검사 | `npm run check` | `npm --prefix on-client run check` | 두 위치 모두 `student/extension.mjs` 문법 오류 없음을 확인 |
 
 ### 4.3 브라우저 주소와 정상 시작 신호
 
@@ -114,6 +124,12 @@ flowchart LR
   P["ALEPH 포털(계정 승인)"]
   G["AI 게이트웨이(CLCO)<br/>운영 측 제공"]
   O["OSV 공개 API<br/>https://api.osv.dev/v1/querybatch"]
+  subgraph EXT["on-client 밖 · 선택 연결을 켤 때만 읽음 (기본 실행에서는 읽지 않음)"]
+    SDPCFG["SDP 설정 파일 + ca/cert/key/token 파일<br/>(--sdp-host-config)"]
+    NATCFG["native 설정 파일 + registryRoot, vaultRoot<br/>(--native-host-config)"]
+    ACTCFG["조치 설정 파일<br/>(--alekov-actions-config)"]
+    PRJ["ON_PROJECT_DIRECTORY의<br/>package-lock.json, 설치 패키지 메타데이터"]
+  end
   B -->|"GET / /app.js /style.css /student/extension.mjs ..."| S
   S --> PUB
   APP -->|"import"| VV
@@ -127,6 +143,11 @@ flowchart LR
   S --> LS
   S --> ACT --> XDR
   S --> VUL --> O
+  ENG -.->|"읽기(선택)"| SDPCFG
+  CON -.->|"읽기(선택)"| NATCFG
+  AI -.->|"vaultRoot(선택)"| NATCFG
+  ACT -.->|"읽기(선택)"| ACTCFG
+  VUL -.->|"읽기(선택)"| PRJ
 ```
 
 ### 5.2 같은 내용의 표
@@ -140,6 +161,7 @@ flowchart LR
 | 서버 → 조치 서비스 → SDP | 조치 준비·집행·결과 조회 | `src/actions/service.mjs`, `src/actions/sdp-action-engine.mjs`, `src/engine/sdp-host.mjs` | **미확인** |
 | 서버 → 계정 연결 → ALEPH 포털 | 계정 연결 확인 | `src/connection/` | **미확인** |
 | 서버 → AI → AI 게이트웨이 | 연결 점검, 사건 설명 | `src/ai/service.mjs`, `vendor/clco-http.mjs` | **미확인**(앱 권한 준비 여부 확인 불가) |
+| 서버 → `on-client` 밖 설정·자격 파일 | 선택 연결의 설정 파일, 인증서·키·토큰 파일, registry·vault 디렉터리, 조회 대상 프로젝트의 `package-lock.json` (3장 표 참조, 기본 실행에서는 읽지 않음) | `src/engine/sdp-host-config.mjs`, `src/connection/native-context.mjs`, `src/actions/action-startup-config.mjs`, `src/vulnerabilities/project-scan.mjs` | **미확인**(선택 연결을 켜지 않음) |
 | 서버 → OSV | 정확한 설치 버전 조회, 운영자 허용 패키지만 | `src/vulnerabilities/osv.mjs`, `project-scan.mjs` | **미확인**(허용 목록 `[]`이라 조회 없음) |
 
 ## 6. 구현한 함수와 제공 코드의 경계
@@ -163,7 +185,7 @@ flowchart LR
 |---|---|---|
 | 실행 도구로 서버 시작(포트 5191), `/` 응답 200 | **확인함** | 2026-10-23 실제 실행 |
 | `/api/vulnerabilities` = `not_configured`, `disconnected` | **확인함** | 같은 실행에서 응답 읽음 |
-| 예제 모드(`demo`) 시작과 `/api/me` 응답 | **확인함** | 포트 5192로 실행 후 종료 |
+| 예제 모드: `node src/server.mjs --demo` 시작과 `/api/me` 응답 | **확인함** | `ON_PORT=5192`로 실행 후 종료. `npm run demo` 명령 자체는 **미확인** |
 | 서버 종료 뒤 응답 없음 | **확인함** | 종료 후 요청 시 연결 실패 |
 | 학생 함수 문법 검사(`npm run check`) | **확인함** | 오류 없음 |
 | 학생 함수의 상태별 표시 | **모의 DOM 입력으로만 확인** | 합성 데이터 검사(18단계 13개, 19단계 18개, 20단계 13개 통과). 실제 응답이 아님 |
@@ -192,7 +214,7 @@ flowchart LR
 
 ## 9. 비밀값과 제출 제외
 
-- 설정 견본 `on-client/.env.example`에는 `ON_PORT`, `ON_ENGINE_ADAPTER`, `ON_AI_MODEL`, `ON_PROJECT_DIRECTORY`, `ON_APPROVED_PUBLIC_PACKAGES`처럼 **비밀 없는 이름과 기본값**만 있습니다. 실제 값이 필요하면 `.env`에 두며, `on-client/.gitignore`의 `.env`·`.env.*` 규칙으로 Git에서 제외됩니다(`git check-ignore`로 `on-client/.env`가 제외됨을 확인).
+- 설정 견본 `on-client/.env.example`에는 `ON_PORT`, `ON_ENGINE_ADAPTER`, `ON_AI_MODEL`, `ON_PROJECT_DIRECTORY`, `ON_APPROVED_PUBLIC_PACKAGES`처럼 **비밀 없는 이름과 기본값**만 있습니다. 서버는 `.env` 파일을 자동으로 읽지 않고 환경변수(`process.env`)만 읽습니다(소스에서 `.env` 로딩 코드를 찾지 못함). 실제 값이 필요하면 환경변수로 넘기며, `.env` 파일을 만들더라도 `on-client/.gitignore`의 `.env`·`.env.*` 규칙으로 Git에서 제외됩니다(`git check-ignore`로 `on-client/.env`가 제외됨을 확인).
 - 키·토큰·비밀번호·SDP 개인 설정·인증서는 이 문서, 코드, 커밋에 적지 않았습니다. 이 문서의 주소는 로컬 주소(`127.0.0.1`)와 공개 도메인(`api.osv.dev`)뿐입니다.
 
 ## 10. 제출 순서 (21·22단계)
