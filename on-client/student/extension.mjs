@@ -1,7 +1,7 @@
 // 이 파일은 학생이 같은 프로젝트에서 이어서 구현합니다.
 // 제공 UI를 받은 것만으로 단계 완료를 인정하지 않습니다.
 export function createStudentView() {
-  return {
+  const view = {
     renderIdentity({ me, devices, sessions } = {}) {
       // 호출마다 새 DOM을 반환합니다. 제공 UI가 이전 표시 전체를 교체합니다.
       const root = document.createElement('div');
@@ -746,5 +746,255 @@ export function createStudentView() {
       }
       return root;
     },
+    renderPcDashboard,
   };
+  mountPcDashboard();
+  return view;
+}
+
+// ---------------------------------------------------------------------------
+// 내 PC 상태 대시보드(관제 대시보드형): 맨 위 상태 카드 4개, 아래 추이와 기록.
+// - 값은 서버의 읽기 전용 GET /api/pc-status(student/pc-status.mjs)가 이 PC에서 방금 읽은 것입니다.
+// - 예시 값은 화면 맨 아래 「읽는 법」에만 있으며 실제 측정과 라벨로 구분합니다.
+// - 조회에 실패하면 예시 값으로 대신하지 않고 실패한 항목과 다음에 할 일을 보여 줍니다.
+// - 제공 화면 파일(public/*)은 고치지 않고, 학생 모듈이 보호 현황 화면 맨 위에 스스로 붙습니다.
+// ---------------------------------------------------------------------------
+const PC_HISTORY_LIMIT = 10;
+const PC_REQUEST_TIMEOUT_MS = 20000;
+
+function pcTime(iso) {
+  const date = new Date(iso);
+  if (typeof iso !== 'string' || Number.isNaN(date.getTime())) return '확인 불가';
+  return date.toLocaleString('ko-KR', { hour12: false });
+}
+
+function pcNumber(value, digits = 1) {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : null;
+}
+
+function pcBar(percent) {
+  const filled = Math.max(0, Math.min(10, Math.round(percent / 10)));
+  return `${'█'.repeat(filled)}${'░'.repeat(10 - filled)}`;
+}
+
+/** 순수 표시 함수: { status: idle|loading|ok|error, data, error, history, sdp } → DOM. 호출마다 새로 그립니다. */
+export function renderPcDashboard({ status, data, error, history = [], sdp } = {}) {
+  const root = document.createElement('div');
+  const add = (parent, tag, text) => {
+    const node = document.createElement(tag);
+    node.textContent = text;
+    parent.append(node);
+    return node;
+  };
+  const list = (parent, rows) => {
+    const ul = document.createElement('ul');
+    for (const row of rows) add(ul, 'li', row);
+    parent.append(ul);
+  };
+
+  const trendCard = () => {
+    const trend = document.createElement('section');
+    trend.className = 'card';
+    add(trend, 'h3', `추이와 기록(이 화면을 연 뒤 실제로 잰 최근 ${PC_HISTORY_LIMIT}회)`);
+    add(trend, 'p', '앱을 끄거나 화면을 새로고침하면 사라집니다. 디스크에 저장하지 않습니다.').className = 'muted';
+    if (history.length === 0) add(trend, 'p', '기록이 아직 없습니다.');
+    else {
+      const rows = history.map(h => `${pcTime(h.measuredAt)} · CPU ${h.cpu === null ? '확인 불가' : `${pcBar(h.cpu)} ${h.cpu.toFixed(1)}%`} · 메모리 ${h.memory === null ? '확인 불가' : `${pcBar(h.memory)} ${h.memory.toFixed(1)}%`} · 디스크 남음 ${h.diskFreeGB === null ? '확인 불가' : `${h.diskFreeGB.toFixed(1)} GB`}`);
+      list(trend, rows);
+    }
+    return trend;
+  };
+
+  if (status === 'idle') { add(root, 'p', '아직 조회 전입니다. 「다시 조회」를 눌러 이 PC의 값을 읽습니다.'); }
+  else if (status === 'loading') { add(root, 'p', '조회 중 · 이 PC의 값을 읽고 있습니다. 아직 결과가 없습니다.'); }
+  else if (status === 'error') {
+    const box = document.createElement('section');
+    add(box, 'h3', '조회 실패 · 값을 표시하지 않습니다');
+    add(box, 'p', `실패한 항목: 내 PC 상태 전체(CPU·메모리·디스크·방화벽·네트워크·Windows 로그) · 코드: ${typeof error?.code === 'string' ? error.code.slice(0, 60) : '확인 불가'}`);
+    add(box, 'p', `원인: ${typeof error?.message === 'string' ? error.message.slice(0, 200) : '로컬 서버에서 응답을 받지 못했습니다.'}`);
+    add(box, 'p', '다음에 할 일: ① 앱을 실행한 PowerShell 창이 켜져 있는지 확인합니다. ② 「다시 조회」를 직접 눌러 다시 시도합니다. ③ 계속되면 그 창에 보이는 첫 오류를 담당자에게 알립니다.');
+    add(box, 'p', history.length > 0 ? '예시 값으로 대신 채우지 않았습니다. 아래 추이의 기록은 이전에 실제로 잰 값이며 현재 값이 아닙니다.' : '예시 값으로 대신 채우지 않았습니다.');
+    root.append(box);
+    if (history.length > 0) root.append(trendCard());
+  } else if (status === 'ok' && data && typeof data === 'object') {
+    const top = document.createElement('div');
+    top.className = 'grid-2';
+    const card = (label, valueText, lines, measuredAt, ok) => {
+      const box = document.createElement('section');
+      box.className = 'card';
+      add(box, 'p', `${label} · ${ok ? '실제 측정(이 PC)' : '확인 불가'}`).className = 'muted';
+      const value = add(box, 'h3', valueText);
+      // 핵심 숫자만 크게 합니다. CSP가 style 속성(HTML)은 막지만 CSSOM 설정은 허용하므로 제공 CSS 파일은 고치지 않습니다.
+      if (value.style) { value.style.fontSize = '1.75rem'; value.style.margin = '4px 0 8px'; }
+      for (const line of lines) add(box, 'p', line);
+      add(box, 'p', `잰 시각: ${pcTime(measuredAt)}`).className = 'muted';
+      box.setAttribute('data-pc-card', label);
+      return box;
+    };
+    const unavailableCard = (label, item, hint) => card(label, '확인 불가', [`이유: ${typeof item?.reason === 'string' ? item.reason : '값을 받지 못했습니다.'}`, hint], item?.measuredAt, false);
+
+    const cpu = data.cpu;
+    top.append(cpu?.status === 'ok' && pcNumber(cpu.percent) !== null
+      ? card('CPU 사용률', `${pcNumber(cpu.percent)} ${cpu.unit === '%' ? '%' : ''}`, [`논리 코어 ${Number.isSafeInteger(cpu.logicalCores) ? cpu.logicalCores : '확인 불가'}개 · ${typeof cpu.method === 'string' ? cpu.method : ''}`], cpu.measuredAt, true)
+      : unavailableCard('CPU 사용률', cpu, '다음에 할 일: 「다시 조회」를 눌러 다시 읽습니다.'));
+
+    const mem = data.memory;
+    top.append(mem?.status === 'ok' && pcNumber(mem.usedPercent) !== null
+      ? card('메모리 사용량', `${pcNumber(mem.usedPercent)} %`, [`사용 ${pcNumber(mem.usedGB)} GB / 전체 ${pcNumber(mem.totalGB)} GB`], mem.measuredAt, true)
+      : unavailableCard('메모리 사용량', mem, '다음에 할 일: 「다시 조회」를 눌러 다시 읽습니다.'));
+
+    const disk = data.disk;
+    top.append(disk?.status === 'ok' && pcNumber(disk.freeGB) !== null
+      ? card('디스크 남은 공간', `${pcNumber(disk.freeGB)} GB`, [`드라이브 ${typeof disk.drive === 'string' ? disk.drive : '확인 불가'} · 전체 ${pcNumber(disk.totalGB)} GB 중 ${pcNumber(disk.freePercent)} % 남음`], disk.measuredAt, true)
+      : unavailableCard('디스크 남은 공간', disk, '다음에 할 일: 「다시 조회」를 눌러 다시 읽습니다.'));
+
+    const fw = data.firewall;
+    if (fw?.status === 'ok' && Array.isArray(fw.profiles) && fw.profiles.length > 0) {
+      const off = fw.profiles.filter(p => p.enabled === false).map(p => p.name);
+      const unknown = fw.profiles.filter(p => p.enabled !== true && p.enabled !== false).map(p => p.name);
+      const headline = off.length > 0 ? `일부 꺼짐: ${off.join(', ')}` : unknown.length > 0 ? `확인 불가 포함: ${unknown.join(', ')}` : '모두 켜짐';
+      top.append(card('방화벽', headline, [fw.profiles.map(p => `${p.name}: ${p.enabled === true ? '켜짐' : p.enabled === false ? '꺼짐' : '확인 불가'}`).join(' · '), '읽기만 했으며 설정을 바꾸지 않았습니다.'], fw.measuredAt, true));
+    } else top.append(unavailableCard('방화벽', fw, '다음에 할 일: 관리자 권한이 필요한 항목은 바꾸지 않고 확인 불가로 둡니다. 담당자에게 읽기 권한을 문의하세요.'));
+    root.append(top);
+
+    root.append(trendCard());
+
+    // 네트워크 구성 · Windows 로그
+    const more = document.createElement('div');
+    more.className = 'grid-2';
+    const net = document.createElement('section');
+    net.className = 'card';
+    add(net, 'h3', '네트워크 구성');
+    if (data.network?.status === 'ok' && Array.isArray(data.network.adapters)) {
+      add(net, 'p', `연결된 어댑터 ${Number.isSafeInteger(data.network.adapterCount) ? data.network.adapterCount : '확인 불가'}개 · 실제 측정(이 PC) · 잰 시각: ${pcTime(data.network.measuredAt)}`);
+      if (data.network.adapters.length) list(net, data.network.adapters.map(a => `${String(a.name).slice(0, 40)} · IPv4 ${a.ipv4 ? '있음' : '없음'} · IPv6 ${a.ipv6 ? '있음' : '없음'}`));
+      add(net, 'p', 'IP·MAC 주소는 읽어도 표시하지 않습니다.').className = 'muted';
+    } else add(net, 'p', `확인 불가 · 이유: ${typeof data.network?.reason === 'string' ? data.network.reason : '값을 받지 못했습니다.'}`);
+    more.append(net);
+
+    const ev = document.createElement('section');
+    ev.className = 'card';
+    add(ev, 'h3', `Windows 기록 경고·오류 건수(최근 ${Number.isSafeInteger(data.events?.windowHours) ? data.events.windowHours : 24}시간)`);
+    add(ev, 'p', '이 건수는 침해나 공격 탐지 결과가 아닙니다. 평소에도 생기는 시스템 기록의 집계입니다.');
+    for (const [key, name] of [['system', 'System'], ['application', 'Application']]) {
+      const side = data.events?.[key];
+      if (side?.status === 'ok' && [side.critical, side.error, side.warning].every(Number.isSafeInteger)) add(ev, 'p', `${name}: 치명 ${side.critical}건 · 오류 ${side.error}건 · 경고 ${side.warning}건 (실제 측정, 잰 시각: ${pcTime(side.measuredAt)})`);
+      else add(ev, 'p', `${name}: 확인 불가 · 이유: ${typeof side?.reason === 'string' ? side.reason : (typeof data.events?.reason === 'string' ? data.events.reason : '값을 받지 못했습니다.')}`);
+    }
+    more.append(ev);
+    root.append(more);
+  } else add(root, 'p', '조회 상태 확인 불가');
+
+  // SDP 연결 여부는 PC 조회 결과와 섞지 않고 따로 보여 줍니다.
+  const sdpBox = document.createElement('section');
+  sdpBox.className = 'card';
+  add(sdpBox, 'h3', 'SDP 연결 상태(PC 조회와 별개)');
+  if (sdp?.status === 'ok' && sdp.mode === 'connected') add(sdpBox, 'p', 'SDP 연결 설정됨 · 서버가 알린 상태이며 위 PC 값과는 별개입니다.');
+  else if (sdp?.status === 'ok' && sdp.mode === 'demo') add(sdpBox, 'p', '예제(demo) 모드 · 실제 SDP 연결이 아닙니다.');
+  else if (sdp?.status === 'ok') add(sdpBox, 'p', 'SDP 미연결 · 이 앱은 SDP 서버에 연결되어 있지 않습니다. PC 값 조회가 성공해도 SDP 연결 성공이 아닙니다.');
+  else if (sdp?.status === 'loading') add(sdpBox, 'p', 'SDP 연결 상태 확인 중');
+  else add(sdpBox, 'p', 'SDP 연결 상태 확인 불가 · 서버 진단을 읽지 못했습니다. PC 값과는 별개입니다.');
+  root.append(sdpBox);
+
+  // 예시 값은 실제 측정과 분리해 맨 아래에만 둡니다.
+  const example = document.createElement('details');
+  add(example, 'summary', '읽는 법 보기 (아래 숫자는 예시 값입니다. 실제 측정이 아닙니다)');
+  add(example, 'p', '예시(설명용) · CPU 32% · 메모리 58% · 디스크 남은 공간 120 GB · 방화벽 켜짐. 실제 카드에는 「실제 측정(이 PC)」와 잰 시각이 붙고, 읽지 못한 값은 예시 대신 「확인 불가」와 이유가 표시됩니다.');
+  root.append(example);
+  return root;
+}
+
+function pcHistoryRow(data) {
+  const cpu = data?.cpu?.status === 'ok' ? data.cpu.percent : null;
+  const memory = data?.memory?.status === 'ok' ? data.memory.usedPercent : null;
+  const diskFreeGB = data?.disk?.status === 'ok' ? data.disk.freeGB : null;
+  return { measuredAt: data?.measuredAt, cpu: Number.isFinite(cpu) ? cpu : null, memory: Number.isFinite(memory) ? memory : null, diskFreeGB: Number.isFinite(diskFreeGB) ? diskFreeGB : null };
+}
+
+let pcDashboardMounted = false;
+
+/** 보호 현황 화면 맨 위에 대시보드를 한 번만 붙입니다. 브라우저에서만 동작하며 모의 DOM 검사에서는 붙지 않습니다. */
+function mountPcDashboard() {
+  if (pcDashboardMounted || typeof document === 'undefined' || typeof document.getElementById !== 'function' || typeof fetch !== 'function') return;
+  const host = document.getElementById('view-protection');
+  if (!host) return;
+  pcDashboardMounted = true;
+
+  const section = document.createElement('section');
+  section.className = 'card';
+  section.setAttribute('aria-labelledby', 'pc-dashboard-title');
+  section.setAttribute('data-student-pc-dashboard', 'true');
+  const title = document.createElement('h2');
+  title.id = 'pc-dashboard-title';
+  title.textContent = '내 PC 상태 ';
+  const tag = document.createElement('span');
+  tag.className = 'tag tag-student';
+  tag.textContent = 'student/extension.mjs · 내 PC 상태';
+  title.append(tag);
+  const bar = document.createElement('p');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn';
+  button.id = 'pc-dashboard-reload';
+  button.textContent = '다시 조회';
+  const live = document.createElement('span');
+  live.setAttribute('role', 'status');
+  live.setAttribute('aria-live', 'polite');
+  bar.append(button, document.createTextNode(' '), live);
+  const result = document.createElement('div');
+  result.id = 'pc-dashboard-result';
+  const notice = document.createElement('p');
+  notice.className = 'muted';
+  notice.textContent = '이 화면의 숫자는 이 PC에서 방금 읽은 실제 측정값입니다(일반 권한, 읽기 전용). 방화벽·보안 설정은 바꾸지 않습니다. 건수는 침해 판정이 아닙니다.';
+  section.append(title, notice, bar, result);
+  const heading = host.querySelector('h1');
+  if (heading && heading.nextSibling) host.insertBefore(section, heading.nextSibling); else host.prepend(section);
+
+  const state = { status: 'idle', data: null, error: null, history: [], sdp: { status: 'loading' } };
+  let generation = 0;
+  const draw = () => {
+    result.replaceChildren(renderPcDashboard(state));
+    // disabled를 쓰면 조회 중 키보드 초점이 사라지므로 aria-disabled로 표시하고 load()에서 중복 요청을 막습니다.
+    button.setAttribute('aria-disabled', state.status === 'loading' ? 'true' : 'false');
+    button.setAttribute('aria-busy', state.status === 'loading' ? 'true' : 'false');
+    live.textContent = state.status === 'loading' ? '조회 중…' : state.status === 'ok' ? `조회 완료 · 잰 시각 ${pcTime(state.data?.measuredAt)}` : state.status === 'error' ? '조회 실패' : '';
+  };
+  const getJson = async (path, signal) => {
+    const response = await fetch(path, { method: 'GET', headers: { accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store', signal });
+    const json = await response.json();
+    return { response, json };
+  };
+  const load = async () => {
+    if (state.status === 'loading') return;
+    const mine = ++generation;
+    state.status = 'loading';
+    state.sdp = { status: 'loading' };
+    draw();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PC_REQUEST_TIMEOUT_MS);
+    try {
+      const [pc, diag] = await Promise.allSettled([getJson('/api/pc-status', controller.signal), getJson('/api/diagnostics', controller.signal)]);
+      if (mine !== generation) return;
+      if (diag.status === 'fulfilled' && diag.value.json?.ok === true && typeof diag.value.json.data?.engine?.mode === 'string') state.sdp = { status: 'ok', mode: diag.value.json.data.engine.mode };
+      else state.sdp = { status: 'error' };
+      if (pc.status === 'fulfilled' && pc.value.response.ok && pc.value.json?.ok === true && pc.value.json.data?.source === 'local-measured') {
+        state.status = 'ok';
+        state.data = pc.value.json.data;
+        state.error = null;
+        state.history = [...state.history, pcHistoryRow(state.data)].slice(-PC_HISTORY_LIMIT);
+      } else {
+        state.status = 'error';
+        state.data = null;
+        const err = pc.status === 'fulfilled' ? pc.value.json?.error : null;
+        state.error = err && typeof err.code === 'string' ? { code: err.code, message: typeof err.message === 'string' ? err.message : '' }
+          : { code: controller.signal.aborted ? 'TIMEOUT' : 'NETWORK_ERROR', message: controller.signal.aborted ? '조회가 시간 안에 끝나지 않았습니다.' : '로컬 서버에 연결할 수 없습니다.' };
+      }
+    } finally {
+      clearTimeout(timer);
+      if (mine === generation) draw();
+    }
+  };
+  button.addEventListener('click', load);
+  draw();
+  load();
 }

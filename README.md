@@ -1,3 +1,13 @@
+# 내 PC 상태 대시보드 (22단계 이후 작업)
+
+22단계까지 만든 이 폴더에서 이어서 만들었습니다. 케셰브 「보호 현황」 맨 위에 **내 PC 상태**(관제 대시보드형: 상태 카드 4개, 아래 추이와 기록)를 붙였습니다. CPU 사용률·메모리 사용량·디스크 남은 공간·방화벽, 네트워크 구성, 최근 24시간 System·Application 경고·오류 건수를 **읽기 전용·일반 권한**으로 읽고, 값마다 단위와 잰 시각을 붙이며, 읽지 못한 값은 예시 값 대신 「확인 불가」와 이유를 보입니다. 건수는 침해 판정이 아니며 SDP 연결 상태는 PC 조회와 따로 표시합니다. 방화벽·보안 설정은 바꾸지 않습니다.
+
+- **제공**: 서버·화면(`public/`)·실행 도구. 이 시작 틀(0.2.11)에는 제공된 「내 PC 상태」가 없었습니다.
+- **내가 만든 것**: `on-client/student/pc-status.mjs`(수집기), `on-client/student/extension.mjs`의 `renderPcDashboard`·`mountPcDashboard`, `on-client/test/pc-dashboard.mjs`, `on-client/test/pc-status-collector.mjs`.
+- **제공 파일 최소 수정**: `on-client/src/server.mjs`에 읽기 전용 `GET /api/pc-status` 한 개(import 1줄, 라우트 4줄). 설치형 앱에 그대로 반영된다고 가정하지 않습니다.
+- **실행·화면 읽는 법·막혔을 때·시연 순서·확인한 것과 못 한 것**: [on-client/docs/STUDENT_PC_DASHBOARD.md](on-client/docs/STUDENT_PC_DASHBOARD.md) (실행: `on-client`에서 `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-alekov.ps1` 후 `http://127.0.0.1:5189/`).
+- **포장**: 정한 방식은 기본 포장 뒤 Inno Setup 설치 프로그램(`setup.exe`, 사용자 단위)이지만, 이 시작 틀에는 `package-app` 명령이 없고 Inno Setup도 설치되어 있지 않아 건너뛰었습니다(담당자 준비 필요). 이미 낸 제출 브랜치(`submission-stage*`)는 그대로 있습니다.
+
 # 22단계 — 최종 커밋 새 환경 재현과 릴리스 기록
 
 **버전 상태: 검증 중인 버전(verifying).** 시작 틀 버전은 `on-client/package.json`의 `0.2.11`입니다. 22단계 통과는 원문 검토 기준의 수료이며 실제 운영 인증이나 v1.0 인증이 아닙니다. 보안 조치를 실제로 처리하는 연결(19단계 실집행)과 실제 SDP·AI 연결 성공은 확인하지 못해 **미완료**입니다.
